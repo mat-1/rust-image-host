@@ -1,0 +1,26 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+
+	<title>i.matdoes.dev</title>
+	<meta name="description" content="Simple anonymous image host.">
+
+	<meta property="og:title" content="A i.matdoes.dev">
+	<meta property="og:type" content="website">
+	<meta property="og:url" content="https://i.matdoes.dev">
+	<meta property="og:description" content="Simple anonymous image host.">
+
+	<link rel="stylesheet" href="/styles.css">
+</head>
+
+<body>
+	<form method="post" enctype="multipart/form-data" action="/upload">
+		<input type="file" id="image-input" name="image"
+			 accept="image/*">
+		<button>Upload</button>
+	 </form>
+</body>
+</html>
