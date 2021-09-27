@@ -8,8 +8,12 @@ edition = "2018"
 [dependencies]
 rocket = "^0.5.0-rc.1"
 rocket-multipart-form-data = "^0.10.0"
-jpegxl-rs = "^0.3.7"
+# jpegxl-rs = { version="^0.3.7", features = [], default-features = false }
+# jpegxl-sys = "^0.3.7"
+kagamijxl = "^0.2.9"
 image = "^0.23.14"
+mongodb = "^2.0.0"
+dotenv = "^0.15.0"
 
 [dependencies.rocket_dyn_templates]
 version = "^0.1.0-rc.1"
