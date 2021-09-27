@@ -18,6 +18,7 @@ use rocket_multipart_form_data::{
 use dotenv::dotenv;
 use std::env;
 
+use mongodb::bson::{doc, Document};
 use mongodb::{options::ClientOptions, Client};
 
 #[get("/")]
@@ -99,12 +100,15 @@ async fn rocket() -> _ {
     dotenv().ok();
 
     let mongodb_uri = env::var("MONGODB_URI").expect("MONGODB_URI must be set");
+    let mongodb_db_name = env::var("MONGODB_DB_NAME").expect("MONGODB_DB_NAME must be set");
+
     let client_options = ClientOptions::parse(mongodb_uri).await.unwrap();
     let client = Client::with_options(client_options).unwrap();
-    let db = client.database("mydb");
+    let db = client.database(&mongodb_db_name);
+    let images_collection = db.collection::<Document>("images");
 
     rocket::build()
-        .manage(client)
+        .manage(db)
         .mount("/", routes![index, image_upload])
         .attach(Template::fairing())
 }
