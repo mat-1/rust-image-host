@@ -9,7 +9,7 @@ use rocket::response::{Redirect};
 use rocket_dyn_templates::Template;
 use rocket_multipart_form_data::mime::Mime;
 use std::path::PathBuf;
-use std::{collections::HashMap, fs};
+use std::{collections::HashMap};
 
 extern crate rocket_multipart_form_data;
 
@@ -149,8 +149,8 @@ fn image_path_to_jpeg(path: &PathBuf, content_type: &Option<Mime>) -> Result<Vec
 
     // if the image is too big, resize it to be 512x512
     if width * height > 512 * 512 {
-        // &decoded_image.resize(512, 512, Lanczos3);
-        decoded_image.thumbnail(512, 512);
+        decoded_image.resize(512, 512, Lanczos3);
+        // decoded_image.thumbnail(512, 512);
     }
 
     let img = decoded_image.to_rgba8();
@@ -158,7 +158,7 @@ fn image_path_to_jpeg(path: &PathBuf, content_type: &Option<Mime>) -> Result<Vec
     let jpeg_bytes_result = encode_jpeg(img);
     match jpeg_bytes_result {
         Ok(jpeg_bytes) => Ok(jpeg_bytes),
-        Err(e) => Err("Jpeg encoding failed".to_string()),
+        Err(_) => Err("Jpeg encoding failed".to_string()),
     }
 }
 
