@@ -217,7 +217,6 @@ async fn upload_image_route(
         println!("file name: {:?}", _file_name);
         println!("path: {:?}", _path);
         let image_encoded_bytes = image_path_to_jpeg(&_path, &_content_type)?;
-        fs::write("encodedimage.jpeg", &image_encoded_bytes).unwrap();
 
         let image_id = match generate_image_id(&images_collection.images).await {
             Ok(image_id) => image_id,
