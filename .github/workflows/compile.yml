@@ -7,8 +7,21 @@ jobs:
     name: Rust project
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
-      - uses: actions-rs/cargo@v1
+      - uses: actions/checkout@v2
+
+      - uses: actions-rs/toolchain@v1
         with:
-          command: build
-          arguments: --release --all-features
+          profile: minimal
+          toolchain: stable
+
+      - name: Cache Packages
+        uses: Swatinem/rust-cache@v1
+
+      - name: Build
+        run: cargo build --release
+
+      - uses: actions/upload-artifact@v2
+        name: Upload a Build Artifact
+        with:
+          name: image-host
+          path: target/release/image-host
