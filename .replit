@@ -1,3 +1,21 @@
 run = ["cargo", "run"]
-
 entrypoint = "src/main.rs"
+langage = "nix"
+
+[packager]
+language = "rust"
+
+  [packager.features]
+  # Enables the package search sidebar
+  packageSearch = true
+  # Enabled package guessing
+  guessImports = false
+
+# Per language configuration: language.<lang name>
+[languages.rust]
+# The glob pattern to match files for this programming language
+pattern = "**/*.rs"
+
+    # LSP configuration for code intelligence
+    [languages.rust.languageServer]
+    start = ["rust-analyzer"]
