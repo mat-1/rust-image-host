@@ -1,6 +1,6 @@
 run = ["cargo", "run"]
 entrypoint = "src/main.rs"
-langage = "nix"
+language = "nix"
 
 [packager]
 language = "rust"
