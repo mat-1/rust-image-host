@@ -5,17 +5,17 @@ use image::io::Reader as ImageReader;
 use mongodb::options::ResolverConfig;
 use mongodb::Collection;
 use rand::{distributions::Alphanumeric, Rng};
-use rocket::response::{Redirect};
+use rocket::response::Redirect;
 use rocket_dyn_templates::Template;
 use rocket_multipart_form_data::mime::Mime;
+use std::collections::HashMap;
 use std::path::PathBuf;
-use std::{collections::HashMap};
 
 extern crate rocket_multipart_form_data;
 
 use rocket::http::{ContentType, Header};
+use rocket::Data;
 use rocket::State;
-use rocket::{Data};
 
 use rocket_multipart_form_data::{
     mime, MultipartFormData, MultipartFormDataField, MultipartFormDataOptions,
@@ -25,9 +25,9 @@ use dotenv::dotenv;
 use std::env;
 
 use bson::spec::BinarySubtype;
+use image::GenericImageView;
 use mongodb::bson::{doc, Document};
 use mongodb::{options::ClientOptions, Client};
-use image::GenericImageView;
 
 #[get("/")]
 fn index() -> Template {
@@ -65,7 +65,10 @@ async fn generate_image_id(
 ) -> Result<String, mongodb::error::Error> {
     let mut id = generate_random_string(5);
     // we read from environ the list of phrases that are not allowed in the image id, separated by commas
-    let forbidden_phrases_string = env::var("FORBIDDEN_PHRASES").unwrap();
+    let forbidden_phrases_string = match env::var("FORBIDDEN_PHRASES") {
+        Ok(f) => f,
+        Err(_) => "".to_string(),
+    };
     let mut forbidden_phrases = forbidden_phrases_string.split(",");
 
     while db_check_image_exists(&images_collection, id.clone()).await?
@@ -138,8 +141,6 @@ fn image_path_to_jpeg(path: &PathBuf, content_type: &Option<Mime>) -> Result<Vec
     // set the format of the ImageReader to the format of the image
     read_image.set_format(mimetype_to_format(&mimetype_string.as_str()));
 
-    
-
     let decoded_image = match read_image.decode() {
         Ok(decoded_image) => decoded_image,
         Err(e) => return Err(e.to_string()),
@@ -167,6 +168,7 @@ async fn db_insert_image(
     id: &String,
     image_data: Vec<u8>,
 ) -> Result<mongodb::results::InsertOneResult, mongodb::error::Error> {
+    println!("inserting doc");
     images_collection
         .insert_one(
             doc! {
@@ -228,8 +230,8 @@ async fn upload_image_route(
             return Err(insert_result.err().unwrap().to_string());
         }
 
-        // You can now deal with the uploaded file.
-        // Ok("epic")
+        dbg!(format!("uploading image {}", &image_id));
+
         Ok(Redirect::to(uri!(view_image_route(image_id))))
     } else {
         Err("no image selected :(".to_string())
@@ -301,6 +303,12 @@ async fn rocket() -> _ {
     let client = Client::with_options(client_options).unwrap();
     let db = client.database(&mongodb_db_name);
     let images_collection = db.collection::<Document>("images");
+
+    client
+        .database("admin")
+        .run_command(doc! {"ping": 1}, None)
+        .await
+        .unwrap();
 
     println!("Connected to database");
 
