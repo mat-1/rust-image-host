@@ -5,13 +5,9 @@ use image::io::Reader as ImageReader;
 use mongodb::options::ResolverConfig;
 use mongodb::Collection;
 use rand::{distributions::Alphanumeric, Rng};
-use rocket::fs::NamedFile;
-use rocket::futures::StreamExt;
-use rocket::response::status::Forbidden;
-use rocket::response::{self, Redirect};
+use rocket::response::{Redirect};
 use rocket_dyn_templates::Template;
 use rocket_multipart_form_data::mime::Mime;
-use std::io::Cursor;
 use std::path::PathBuf;
 use std::{collections::HashMap, fs};
 
@@ -19,7 +15,7 @@ extern crate rocket_multipart_form_data;
 
 use rocket::http::{ContentType, Header};
 use rocket::State;
-use rocket::{Data, Response};
+use rocket::{Data};
 
 use rocket_multipart_form_data::{
     mime, MultipartFormData, MultipartFormDataField, MultipartFormDataOptions,
@@ -29,9 +25,9 @@ use dotenv::dotenv;
 use std::env;
 
 use bson::spec::BinarySubtype;
-use bytemuck::cast_slice;
 use mongodb::bson::{doc, Document};
 use mongodb::{options::ClientOptions, Client};
+use image::GenericImageView;
 
 #[get("/")]
 fn index() -> Template {
@@ -142,15 +138,14 @@ fn image_path_to_jpeg(path: &PathBuf, content_type: &Option<Mime>) -> Result<Vec
     // set the format of the ImageReader to the format of the image
     read_image.set_format(mimetype_to_format(&mimetype_string.as_str()));
 
-    let mut decoded_image = match read_image.decode() {
+    
+
+    let decoded_image = match read_image.decode() {
         Ok(decoded_image) => decoded_image,
         Err(e) => return Err(e.to_string()),
     };
 
-    let (width, height) = match read_image.into_dimensions() {
-        Ok(dimensions) => dimensions,
-        Err(e) => return Err(e.to_string()),
-    };
+    let (width, height) = decoded_image.dimensions();
 
     // if the image is too big, resize it to be 512x512
     if width * height > 512 * 512 {
