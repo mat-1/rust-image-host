@@ -14,6 +14,8 @@ kagamijxl = "^0.2.9"
 image = "^0.23.14"
 mongodb = "^2.0.0"
 dotenv = "^0.15.0"
+bson = "^2.0.0"
+rand = "^0.8.4"
 
 [dependencies.rocket_dyn_templates]
 version = "^0.1.0-rc.1"

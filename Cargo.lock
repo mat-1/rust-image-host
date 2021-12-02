@@ -1063,10 +1063,12 @@ dependencies = [
 name = "image-host"
 version = "0.1.0"
 dependencies = [
+ "bson",
  "dotenv",
  "image",
  "kagamijxl",
  "mongodb",
+ "rand",
  "rocket",
  "rocket-multipart-form-data",
  "rocket_dyn_templates",
