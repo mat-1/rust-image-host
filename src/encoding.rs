@@ -8,10 +8,18 @@ use image::GenericImageView;
 use std::path::PathBuf;
 use webp;
 
-pub const CONTENT_TYPE: &str = "image/webp";
+
+pub struct EncodeResult<'a> {
+    pub data: Vec<u8>,
+    pub size: (u32, u32),
+    pub content_type: &'a str,
+}
 
 /// Encode an image as a Webp from the given file path
-pub fn image_path_to_encoded(path: &PathBuf, content_type: &String) -> Result<Vec<u8>, String> {
+pub fn image_path_to_encoded<'a>(
+    path: &'a PathBuf,
+    content_type: &'a String,
+) -> Result<EncodeResult<'a>, String> {
     // read the bytes of the file into an ImageReader
     let mut read_image = match ImageReader::open(path) {
         Ok(read_image) => read_image,
@@ -34,9 +42,13 @@ pub fn image_path_to_encoded(path: &PathBuf, content_type: &String) -> Result<Ve
         // decoded_image.thumbnail(512, 512);
     }
 
-    let image_bytes = from_image(&decoded_image);
+    let image_bytes = from_image(&decoded_image)?;
 
-    image_bytes
+    Ok(EncodeResult {
+        data: image_bytes,
+        size: (width, height),
+        content_type: "image/webp",
+    })
 }
 
 /// Convert a dynamic image into Webp bytes

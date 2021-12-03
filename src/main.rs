@@ -4,14 +4,10 @@ mod db;
 mod encoding;
 mod util;
 
-use image::imageops::FilterType::Lanczos3;
-use image::io::Reader as ImageReader;
-use image::GenericImageView;
 use rocket::response::Redirect;
 use rocket_dyn_templates::Template;
-use rocket_multipart_form_data::mime::Mime;
 use std::collections::HashMap;
-use std::path::PathBuf;
+use log::info;
 
 extern crate rocket_multipart_form_data;
 
@@ -65,19 +61,27 @@ async fn upload_image_route(
             None => return Err("No mimetype".to_string()),
         };
 
-        let image_encoded_bytes = encoding::image_path_to_encoded(&_path, &content_type_string)?;
+        let encoded_image = encoding::image_path_to_encoded(&_path, &content_type_string)?;
 
         let image_id = match db::generate_image_id(&images_collection.images).await {
             Ok(image_id) => image_id,
             Err(e) => return Err(e.to_string()),
         };
-        let insert_result =
-            db::insert_image(&images_collection.images, &image_id, image_encoded_bytes).await;
+        let insert_result = db::insert_image(
+            &images_collection.images,
+            &db::NewImage {
+                id: &image_id,
+                data: &encoded_image.data,
+                content_type: &encoded_image.content_type,
+            },
+        )
+        .await;
+        // db::insert_image(&images_collection.images, &image_id, &encoded_image.data).await;
         if insert_result.is_err() {
             return Err(insert_result.err().unwrap().to_string());
         }
 
-        dbg!(format!("uploading image {}", &image_id));
+        info!("uploading image {}", &image_id);
 
         Ok(Redirect::to(uri!(view_image_route(image_id))))
     } else {
@@ -106,12 +110,13 @@ async fn view_image_route(
         Some(image_doc) => image_doc,
         None => return Err("No image found".to_string()),
     };
-    let image_data: &Vec<u8> = image_doc.get_binary_generic("data").unwrap();
+
+    let image_data: Vec<u8> = image_doc.get_binary_generic("data").unwrap().clone();
+    let content_type: String = image_doc.get_str("content_type").unwrap().to_string();
 
     Ok(MyResponder {
-        inner: image_data.clone(),
-        // header: ContentType::WEBP,
-        more: Header::new("Content-Type", encoding::CONTENT_TYPE),
+        inner: image_data,
+        more: Header::new("Content-Type", content_type),
     })
 }
 

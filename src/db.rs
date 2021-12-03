@@ -16,6 +16,12 @@ pub struct Collections {
     pub images: Collection<Document>,
 }
 
+pub struct NewImage<'a> {
+    pub id: &'a String,
+    pub data: &'a Vec<u8>,
+    pub content_type: &'a str,
+}
+
 /// Check if the image with the given id exists
 pub async fn check_image_exists(
     images_collection: &Collection<Document>,
@@ -88,15 +94,15 @@ pub async fn generate_image_id(
 
 pub async fn insert_image(
     images_collection: &Collection<Document>,
-    id: &String,
-    image_data: Vec<u8>,
+    image: &NewImage<'_>,
 ) -> Result<mongodb::results::InsertOneResult, mongodb::error::Error> {
     println!("inserting doc");
     images_collection
         .insert_one(
             doc! {
-                "_id": id,
-                "data": bson::Binary { subtype: BinarySubtype::Generic, bytes: image_data },
+                "_id": image.id,
+                "data": bson::Binary { subtype: BinarySubtype::Generic, bytes: image.data.to_vec() },
+                "content_type": image.content_type,
                 "date": bson::DateTime::now(),
                 "last_seen": bson::DateTime::now(),
             },
