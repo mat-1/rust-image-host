@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate rocket;
 mod db;
+mod encoding;
 mod util;
 
 use image::imageops::FilterType::Lanczos3;
@@ -28,69 +29,6 @@ use dotenv::dotenv;
 fn index() -> Template {
     let context: HashMap<String, ()> = HashMap::new();
     Template::render("index", &context)
-}
-
-/// Encode a jpeg from a vec of raw pixels into a vec of jpeg bytes
-fn encode_jpeg(
-    img: image::ImageBuffer<image::Rgba<u8>, Vec<u8>>,
-) -> Result<Vec<u8>, Box<dyn std::any::Any + std::marker::Send>> {
-    // the mozjpeg library likes panicking, so we have to catch_unwind
-    std::panic::catch_unwind(|| {
-        let mut comp = mozjpeg::Compress::new(mozjpeg::ColorSpace::JCS_EXT_RGBA);
-        comp.set_color_space(mozjpeg::ColorSpace::JCS_RGB);
-
-        // compression epic gaming
-        comp.set_optimize_scans(true);
-        comp.set_quality(90.0);
-        comp.set_size(img.width() as usize, img.height() as usize);
-        comp.set_mem_dest();
-
-        comp.start_compress();
-        assert!(comp.write_scanlines(&img));
-        comp.finish_compress();
-
-        let jpeg_bytes = comp.data_to_vec().unwrap();
-
-        Ok(jpeg_bytes)
-    })?
-}
-
-/// Encode an image as a Jpeg from the given file path
-fn image_path_to_jpeg(path: &PathBuf, content_type: &Option<Mime>) -> Result<Vec<u8>, String> {
-    // read the bytes of the file into an ImageReader
-    let mut read_image = match ImageReader::open(path) {
-        Ok(read_image) => read_image,
-        Err(e) => return Err(e.to_string()),
-    };
-
-    let mimetype_string = match content_type {
-        Some(mimetype_string) => mimetype_string.to_string(),
-        None => return Err("No mimetype".to_string()),
-    };
-
-    // set the format of the ImageReader to the format of the image
-    read_image.set_format(util::mimetype_to_format(&mimetype_string.as_str()));
-
-    let decoded_image = match read_image.decode() {
-        Ok(decoded_image) => decoded_image,
-        Err(e) => return Err(e.to_string()),
-    };
-
-    let (width, height) = decoded_image.dimensions();
-
-    // if the image is too big, resize it to be 512x512
-    if width * height > 512 * 512 {
-        decoded_image.resize(512, 512, Lanczos3);
-        // decoded_image.thumbnail(512, 512);
-    }
-
-    let img = decoded_image.to_rgba8();
-
-    let jpeg_bytes_result = encode_jpeg(img);
-    match jpeg_bytes_result {
-        Ok(jpeg_bytes) => Ok(jpeg_bytes),
-        Err(_) => Err("Jpeg encoding failed".to_string()),
-    }
 }
 
 #[post("/upload", data = "<data>")]
@@ -121,7 +59,13 @@ async fn upload_image_route(
         println!("content type: {:?}", _content_type);
         println!("file name: {:?}", _file_name);
         println!("path: {:?}", _path);
-        let image_encoded_bytes = image_path_to_jpeg(&_path, &_content_type)?;
+
+        let content_type_string = match _content_type {
+            Some(t) => t.to_string(),
+            None => return Err("No mimetype".to_string()),
+        };
+
+        let image_encoded_bytes = encoding::image_path_to_encoded(&_path, &content_type_string)?;
 
         let image_id = match db::generate_image_id(&images_collection.images).await {
             Ok(image_id) => image_id,
@@ -142,14 +86,13 @@ async fn upload_image_route(
 }
 
 #[derive(Responder)]
-#[response(status = 200, content_type = "image/jpeg")]
+#[response(status = 200)]
 struct MyResponder {
     inner: Vec<u8>,
-    header: ContentType,
+    // header: ContentType,
     more: Header<'static>,
 }
 
-/// View the image from the database by quickly converting it to jpeg
 #[get("/<id>")]
 async fn view_image_route(
     id: String,
@@ -167,8 +110,8 @@ async fn view_image_route(
 
     Ok(MyResponder {
         inner: image_data.clone(),
-        header: ContentType::JPEG,
-        more: Header::new("Content-Type", "image/jpeg"),
+        // header: ContentType::WEBP,
+        more: Header::new("Content-Type", encoding::CONTENT_TYPE),
     })
 }
 

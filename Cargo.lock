@@ -35,12 +35,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "arrayvec"
-version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8da52d66c7071e2e3fa2a1e5c6d088fec47b593032b254f5e980de8ea54454d6"
-
-[[package]]
 name = "async-stream"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -481,12 +475,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77c90badedccf4105eca100756a0b1289e191f6fcbdadd3cee1d2f614f97da8f"
 
 [[package]]
-name = "dunce"
-version = "1.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "453440c271cf5577fd2a40e4942540cb7d0d2f85e27c8d07dd0023c925a67541"
-
-[[package]]
 name = "either"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -518,15 +506,6 @@ name = "fake-simd"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e88a8acf291dafb59c2d96e8f59828f3838bb1a70398823ade51a84de6a6deed"
-
-[[package]]
-name = "fallible_collections"
-version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eaefd4190151d458f16f0793d3452d7f13aeb3701566a4cefc4c37598876cc00"
-dependencies = [
- "hashbrown",
-]
 
 [[package]]
 name = "figment"
@@ -806,9 +785,6 @@ name = "hashbrown"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ab5ef0d4909ef3724cc8cce6ccc8572c5c817592e9285f5464f8e86f8bd3726e"
-dependencies = [
- "ahash",
-]
 
 [[package]]
 name = "heck"
@@ -978,16 +954,15 @@ name = "image-host"
 version = "0.1.0"
 dependencies = [
  "bson",
- "bytemuck",
  "dotenv",
  "image",
  "log",
  "mongodb",
- "mozjpeg",
  "rand",
  "rocket",
  "rocket-multipart-form-data",
  "rocket_dyn_templates",
+ "webp",
 ]
 
 [[package]]
@@ -1123,6 +1098,15 @@ name = "libc"
 version = "0.2.102"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2a5ac8f984bfcf3a823267e5fde638acc3325f6496633a5da6bb6eb2171e103"
+
+[[package]]
+name = "libwebp-sys"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3e70c064738b35a28fd6f991d27c0d9680353641d167ae3702a8228dd8272ef6"
+dependencies = [
+ "cc",
+]
 
 [[package]]
 name = "linked-hash-map"
@@ -1352,31 +1336,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mozjpeg"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2331118f5be2fbf28b9bc79cf720fb92470215cfc5d45a9f07cb24cae301b04e"
-dependencies = [
- "arrayvec",
- "fallible_collections",
- "libc",
- "mozjpeg-sys",
- "rgb",
-]
-
-[[package]]
-name = "mozjpeg-sys"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "215a592d91abceb187028dfc6d9c07811bdfc5584d4ada50a4d387d82ed0aedc"
-dependencies = [
- "cc",
- "dunce",
- "libc",
- "nasm-rs",
-]
-
-[[package]]
 name = "multer"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1395,12 +1354,6 @@ dependencies = [
  "twoway",
  "version_check",
 ]
-
-[[package]]
-name = "nasm-rs"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9dbff86bd2ee8cb407e8608e2c3504412a967c06286ef7e5cf7c1b9db756f0a9"
 
 [[package]]
 name = "net2"
@@ -1850,15 +1803,6 @@ checksum = "52e44394d2086d010551b14b53b1f24e31647570cd1deb0379e2c21b329aba00"
 dependencies = [
  "hostname",
  "quick-error",
-]
-
-[[package]]
-name = "rgb"
-version = "0.8.29"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a27fa03bb1e3e2941f52d4a555a395a72bf79b0a85fbbaab79447050c97d978c"
-dependencies = [
- "bytemuck",
 ]
 
 [[package]]
@@ -2905,6 +2849,16 @@ checksum = "38eb105f1c59d9eaa6b5cdc92b859d85b926e82cb2e0945cd0c9259faa6fe9fb"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "webp"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0041a9fcbdbf6402c3cb0ec7c2c1a1c240efd523519a0763ae07753bc95f7713"
+dependencies = [
+ "image",
+ "libwebp-sys",
 ]
 
 [[package]]
