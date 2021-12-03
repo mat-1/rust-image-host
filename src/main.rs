@@ -1,10 +1,11 @@
 #[macro_use]
 extern crate rocket;
+mod db;
+mod util;
+
 use image::imageops::FilterType::Lanczos3;
 use image::io::Reader as ImageReader;
-use mongodb::options::ResolverConfig;
-use mongodb::Collection;
-use rand::{distributions::Alphanumeric, Rng};
+use image::GenericImageView;
 use rocket::response::Redirect;
 use rocket_dyn_templates::Template;
 use rocket_multipart_form_data::mime::Mime;
@@ -22,82 +23,11 @@ use rocket_multipart_form_data::{
 };
 
 use dotenv::dotenv;
-use std::env;
-
-use bson::spec::BinarySubtype;
-use image::GenericImageView;
-use mongodb::bson::{doc, Document};
-use mongodb::{options::ClientOptions, Client};
 
 #[get("/")]
 fn index() -> Template {
     let context: HashMap<String, ()> = HashMap::new();
     Template::render("index", &context)
-}
-
-/// Generate a random alphanumeric string of the given length
-fn generate_random_string(length: usize) -> String {
-    rand::thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(length)
-        .map(char::from)
-        .collect()
-}
-
-/// Check if the image with the given id exists
-async fn db_check_image_exists(
-    images_collection: &Collection<Document>,
-    id: String,
-) -> Result<bool, mongodb::error::Error> {
-    let filter = doc! {"_id": id};
-    let counted_documents = images_collection
-        .count_documents(
-            filter,
-            Some(mongodb::options::CountOptions::builder().limit(1).build()),
-        )
-        .await?;
-    Ok(counted_documents > 0)
-}
-
-/// Generate a random non-duplicate image id
-async fn generate_image_id(
-    images_collection: &Collection<Document>,
-) -> Result<String, mongodb::error::Error> {
-    let mut id = generate_random_string(5);
-    // we read from environ the list of phrases that are not allowed in the image id, separated by commas
-    let forbidden_phrases_string = match env::var("FORBIDDEN_PHRASES") {
-        Ok(f) => f,
-        Err(_) => "".to_string(),
-    };
-    let mut forbidden_phrases = forbidden_phrases_string.split(",");
-
-    while db_check_image_exists(&images_collection, id.clone()).await?
-        || forbidden_phrases.any(|p| id.contains(p))
-    {
-        id = generate_random_string(5);
-    }
-    Ok(id)
-}
-
-/// Convert a mime type to an `image::ImageFormat`
-fn mimetype_to_format(mimetype: &str) -> image::ImageFormat {
-    match mimetype {
-        "image/png" => image::ImageFormat::Png,
-        "image/jpeg" => image::ImageFormat::Jpeg,
-        "image/gif" => image::ImageFormat::Gif,
-        "image/webp" => image::ImageFormat::WebP,
-        "image/pnm" => image::ImageFormat::Pnm,
-        "image/tiff" => image::ImageFormat::Tiff,
-        "image/tga" => image::ImageFormat::Tga,
-        "image/dds" => image::ImageFormat::Dds,
-        "image/bmp" => image::ImageFormat::Bmp,
-        "image/ico" => image::ImageFormat::Ico,
-        "image/hdr" => image::ImageFormat::Hdr,
-        "image/farbfeld" => image::ImageFormat::Farbfeld,
-        "image/avif" => image::ImageFormat::Avif,
-        // idk just go with jpeg it'll probably fail
-        _ => image::ImageFormat::Jpeg,
-    }
 }
 
 /// Encode a jpeg from a vec of raw pixels into a vec of jpeg bytes
@@ -139,7 +69,7 @@ fn image_path_to_jpeg(path: &PathBuf, content_type: &Option<Mime>) -> Result<Vec
     };
 
     // set the format of the ImageReader to the format of the image
-    read_image.set_format(mimetype_to_format(&mimetype_string.as_str()));
+    read_image.set_format(util::mimetype_to_format(&mimetype_string.as_str()));
 
     let decoded_image = match read_image.decode() {
         Ok(decoded_image) => decoded_image,
@@ -163,38 +93,11 @@ fn image_path_to_jpeg(path: &PathBuf, content_type: &Option<Mime>) -> Result<Vec
     }
 }
 
-async fn db_insert_image(
-    images_collection: &Collection<Document>,
-    id: &String,
-    image_data: Vec<u8>,
-) -> Result<mongodb::results::InsertOneResult, mongodb::error::Error> {
-    println!("inserting doc");
-    images_collection
-        .insert_one(
-            doc! {
-                "_id": id,
-                "data": bson::Binary { subtype: BinarySubtype::Generic, bytes: image_data },
-                "date": bson::DateTime::now(),
-                "last_seen": bson::DateTime::now(),
-            },
-            None,
-        )
-        .await
-}
-
-async fn db_get_image(
-    images_collection: &Collection<Document>,
-    id: String,
-) -> Result<Option<Document>, mongodb::error::Error> {
-    let filter = doc! {"_id": id};
-    images_collection.find_one(filter, None).await
-}
-
 #[post("/upload", data = "<data>")]
 async fn upload_image_route(
     content_type: &ContentType,
     data: Data<'_>,
-    images_collection: &State<Collections>,
+    images_collection: &State<db::Collections>,
 ) -> Result<Redirect, String> {
     let options = MultipartFormDataOptions::with_multipart_form_data_fields(vec![
         MultipartFormDataField::file("image")
@@ -220,12 +123,12 @@ async fn upload_image_route(
         println!("path: {:?}", _path);
         let image_encoded_bytes = image_path_to_jpeg(&_path, &_content_type)?;
 
-        let image_id = match generate_image_id(&images_collection.images).await {
+        let image_id = match db::generate_image_id(&images_collection.images).await {
             Ok(image_id) => image_id,
             Err(e) => return Err(e.to_string()),
         };
         let insert_result =
-            db_insert_image(&images_collection.images, &image_id, image_encoded_bytes).await;
+            db::insert_image(&images_collection.images, &image_id, image_encoded_bytes).await;
         if insert_result.is_err() {
             return Err(insert_result.err().unwrap().to_string());
         }
@@ -250,9 +153,9 @@ struct MyResponder {
 #[get("/<id>")]
 async fn view_image_route(
     id: String,
-    images_collection: &State<Collections>,
+    images_collection: &State<db::Collections>,
 ) -> Result<MyResponder, String> {
-    let image_doc_option = match db_get_image(&images_collection.images, id).await {
+    let image_doc_option = match db::get_image(&images_collection.images, id).await {
         Ok(image_doc) => image_doc,
         Err(e) => return Err(e.to_string()),
     };
@@ -262,24 +165,11 @@ async fn view_image_route(
     };
     let image_data: &Vec<u8> = image_doc.get_binary_generic("data").unwrap();
 
-    // // let r = rocket::response::Response::build()
-    // //     .header(Header::new("Content-Type", "image/jpeg"))
-    // //     .sized_body(image_data.len(), Cursor::new(img))
-    // //     .ok();
-    // // if r.is_err() {
-    // //     return Err(r.err().unwrap().to_string());
-    // // }
-    // // Ok(r.unwrap())
-
     Ok(MyResponder {
         inner: image_data.clone(),
         header: ContentType::JPEG,
         more: Header::new("Content-Type", "image/jpeg"),
     })
-}
-
-struct Collections {
-    images: Collection<Document>,
 }
 
 #[launch]
@@ -288,32 +178,12 @@ async fn rocket() -> _ {
 
     dotenv().ok();
 
-    println!("Loaded env variables");
-
-    let mongodb_uri = env::var("MONGODB_URI").expect("MONGODB_URI must be set");
-    let mongodb_db_name = env::var("MONGODB_DB_NAME").expect("MONGODB_DB_NAME must be set");
-    println!("MONGODB_URI: {}", mongodb_uri);
-    println!("MONGODB_DB_NAME: {}", mongodb_db_name);
-
-    let client_options =
-        ClientOptions::parse_with_resolver_config(mongodb_uri, ResolverConfig::cloudflare())
-            .await
-            .unwrap();
-    println!("Connecting to mongodb");
-    let client = Client::with_options(client_options).unwrap();
-    let db = client.database(&mongodb_db_name);
-    let images_collection = db.collection::<Document>("images");
-
-    client
-        .database("admin")
-        .run_command(doc! {"ping": 1}, None)
-        .await
-        .unwrap();
+    let images_collection = db::connect().await.unwrap();
 
     println!("Connected to database");
 
     rocket::build()
-        .manage(Collections {
+        .manage(db::Collections {
             images: images_collection,
         })
         .mount("/", routes![index, upload_image_route, view_image_route])

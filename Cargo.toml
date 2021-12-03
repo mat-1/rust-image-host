@@ -15,6 +15,7 @@ bson = "^2.0.0"
 rand = "^0.8.4"
 mozjpeg = "^0.9.1"
 bytemuck = "1.7.2"
+log = "0.4"
 
 [dependencies.rocket_dyn_templates]
 version = "^0.1.0-rc.1"
