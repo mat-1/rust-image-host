@@ -7,7 +7,7 @@ use image::DynamicImage;
 use image::GenericImageView;
 use std::path::PathBuf;
 use webp;
-
+use oxipng;
 
 pub struct EncodeResult<'a> {
     pub data: Vec<u8>,
@@ -34,28 +34,35 @@ pub fn image_path_to_encoded<'a>(
         Err(e) => return Err(e.to_string()),
     };
 
-    let (width, height) = decoded_image.dimensions();
+    from_image(decoded_image)
+}
+
+/// Convert a dynamic image into a Webp
+fn to_webp(image: &DynamicImage) -> Result<Vec<u8>, String> {
+    let encoder = match webp::Encoder::from_image(&image) {
+        Ok(i) => i,
+        Err(e) => return Err(e.to_string()),
+    };
+    let image_bytes = (*encoder.encode(90.0)).to_vec();
+
+    Ok(image_bytes)
+}
+
+/// Convert a dynamic image into an optimized image
+fn from_image(image: DynamicImage) -> Result<EncodeResult<'static>, String> {
+    let (width, height) = image.dimensions();
 
     // if the image is too big, resize it to be 512x512
     if width * height > 512 * 512 {
-        decoded_image.resize(512, 512, Lanczos3);
+        image.resize(512, 512, Lanczos3);
         // decoded_image.thumbnail(512, 512);
     }
-
-    let image_bytes = from_image(&decoded_image)?;
+    
+    let image_bytes = to_webp(&image)?;
 
     Ok(EncodeResult {
         data: image_bytes,
         size: (width, height),
         content_type: "image/webp",
     })
-}
-
-/// Convert a dynamic image into Webp bytes
-fn from_image(image: &DynamicImage) -> Result<Vec<u8>, String> {
-    let encoder = match webp::Encoder::from_image(&image) {
-        Ok(i) => i,
-        Err(e) => return Err(e.to_string()),
-    };
-    Ok((*encoder.encode(90.0)).to_vec())
 }
