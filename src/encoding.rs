@@ -38,8 +38,8 @@ pub fn image_path_to_encoded<'a>(
 }
 
 /// Convert a dynamic image into a Webp
-fn to_webp(image: &DynamicImage) -> Result<Vec<u8>, String> {
-    let encoder = match webp::Encoder::from_image(&image) {
+fn to_webp(im: &DynamicImage) -> Result<Vec<u8>, String> {
+    let encoder = match webp::Encoder::from_image(&im) {
         Ok(i) => i,
         Err(e) => return Err(e.to_string()),
     };
@@ -48,17 +48,30 @@ fn to_webp(image: &DynamicImage) -> Result<Vec<u8>, String> {
     Ok(image_bytes)
 }
 
+/// Convert a dynamic image to png
+fn to_png(im: &DynamicImage) -> Result<Vec<u8>, String> {
+    let mut bytes: Vec<u8> = Vec::new();
+    match im.write_to(&mut bytes, image::ImageOutputFormat::Png) {
+        Ok(_) => (),
+        Err(e) => return Err(e.to_string()),
+    };
+    match oxipng::optimize_from_memory(&bytes[..], &oxipng::Options::default()) {
+        Ok(r) => Ok(r),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
 /// Convert a dynamic image into an optimized image
-fn from_image(image: DynamicImage) -> Result<EncodeResult<'static>, String> {
-    let (width, height) = image.dimensions();
+fn from_image(im: DynamicImage) -> Result<EncodeResult<'static>, String> {
+    let (width, height) = im.dimensions();
 
     // if the image is too big, resize it to be 512x512
     if width * height > 512 * 512 {
-        image.resize(512, 512, Lanczos3);
+        im.resize(512, 512, Lanczos3);
         // decoded_image.thumbnail(512, 512);
     }
     
-    let image_bytes = to_webp(&image)?;
+    let image_bytes = to_webp(&im)?;
 
     Ok(EncodeResult {
         data: image_bytes,
