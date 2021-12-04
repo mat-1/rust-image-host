@@ -1,3 +1,2 @@
 [default]
 limits = { forms = "16 MiB" }
-template_dir = "templates/"

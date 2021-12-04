@@ -21,10 +21,22 @@ use rocket_multipart_form_data::{
 
 use dotenv::dotenv;
 
+#[derive(Responder)]
+#[response(status = 200)]
+struct HtmlResponder {
+    inner: &'static str,
+    // header: ContentType,
+    more: Header<'static>,
+}
+
 #[get("/")]
-fn index() -> Template {
+fn index() -> HtmlResponder {
     let context: HashMap<String, ()> = HashMap::new();
-    Template::render("index", &context)
+    HtmlResponder {
+        inner: include_str!("../site/index.html"),
+        more: Header::new("Content-Type", "text/html; charset=utf-8"),
+    }
+    // Template::render("index.html", &context)
 }
 
 #[post("/upload", data = "<data>")]
@@ -135,5 +147,4 @@ async fn rocket() -> _ {
             images: images_collection,
         })
         .mount("/", routes![index, upload_image_route, view_image_route])
-        .attach(Template::fairing())
 }
