@@ -16,6 +16,8 @@ rand = "^0.8.4"
 log = "^0.4"
 webp = "^0.2.0"
 oxipng = "^5.0.1"
+rayon = "^1.5.1"
+tokio = "^1.14.0"
 
 [dependencies.rocket_dyn_templates]
 version = "^0.1.0-rc.1"

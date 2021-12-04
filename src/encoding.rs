@@ -5,9 +5,10 @@ use image::imageops::FilterType::Lanczos3;
 use image::io::Reader as ImageReader;
 use image::DynamicImage;
 use image::GenericImageView;
-use std::path::PathBuf;
-use webp;
 use oxipng;
+use std::path::PathBuf;
+use std::thread;
+use webp;
 
 pub struct EncodeResult<'a> {
     pub data: Vec<u8>,
@@ -16,7 +17,7 @@ pub struct EncodeResult<'a> {
 }
 
 /// Encode an image as a Webp from the given file path
-pub fn image_path_to_encoded<'a>(
+pub async fn image_path_to_encoded<'a>(
     path: &'a PathBuf,
     content_type: &'a String,
 ) -> Result<EncodeResult<'a>, String> {
@@ -34,7 +35,7 @@ pub fn image_path_to_encoded<'a>(
         Err(e) => return Err(e.to_string()),
     };
 
-    from_image(decoded_image)
+    from_image(decoded_image).await
 }
 
 /// Convert a dynamic image into a Webp
@@ -62,7 +63,7 @@ fn to_png(im: &DynamicImage) -> Result<Vec<u8>, String> {
 }
 
 /// Convert a dynamic image into an optimized image
-fn from_image(im: DynamicImage) -> Result<EncodeResult<'static>, String> {
+async fn from_image(im: DynamicImage) -> Result<EncodeResult<'static>, String> {
     let (width, height) = im.dimensions();
 
     // if the image is too big, resize it to be 512x512
@@ -70,11 +71,17 @@ fn from_image(im: DynamicImage) -> Result<EncodeResult<'static>, String> {
         im.resize(512, 512, Lanczos3);
         // decoded_image.thumbnail(512, 512);
     }
-    
-    let image_bytes = to_webp(&im)?;
+
+    let (send, recv) = tokio::sync::oneshot::channel();
+
+    // spawn a task to asynchronously wait for the image to be encoded in a thread
+    rayon::spawn(move || {
+        send.send(to_webp(&im)).unwrap();
+    });
+    let webp_bytes = recv.await.expect("Panic in rayon::spawn")?;
 
     Ok(EncodeResult {
-        data: image_bytes,
+        data: webp_bytes,
         size: (width, height),
         content_type: "image/webp",
     })
