@@ -49,3 +49,19 @@ pub fn mimetype_to_format(mimetype: &str) -> ImageFormat {
         _ => ImageFormat::Jpeg,
     }
 }
+
+/// Create a thread for a given function, await it, and return the result.
+pub async fn run_thread<F: 'static, T: 'static>(f: F) -> T
+where
+    F: FnOnce() -> T + std::marker::Send,
+    T: std::marker::Send,
+{
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    rayon::spawn(move || {
+        let result = f();
+        if tx.send(result).is_err() {
+            panic!("failed to send result");
+        }
+    });
+    rx.await.unwrap()
+}
