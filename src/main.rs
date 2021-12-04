@@ -31,12 +31,10 @@ struct HtmlResponder {
 
 #[get("/")]
 fn index() -> HtmlResponder {
-    let context: HashMap<String, ()> = HashMap::new();
     HtmlResponder {
         inner: include_str!("../site/index.html"),
         more: Header::new("Content-Type", "text/html; charset=utf-8"),
     }
-    // Template::render("index.html", &context)
 }
 
 #[post("/upload", data = "<data>")]
@@ -132,6 +130,12 @@ async fn view_image_route(
     })
 }
 
+// this is here for compatibility with the old version of the site
+#[get("/image/<id>")]
+async fn redirect_image_route(id: String) -> Redirect {
+    Redirect::to(uri!(view_image_route(id)))
+}
+
 #[launch]
 async fn rocket() -> _ {
     println!("Starting server");
@@ -146,5 +150,13 @@ async fn rocket() -> _ {
         .manage(db::Collections {
             images: images_collection,
         })
-        .mount("/", routes![index, upload_image_route, view_image_route])
+        .mount(
+            "/",
+            routes![
+                index,
+                upload_image_route,
+                view_image_route,
+                redirect_image_route
+            ],
+        )
 }
