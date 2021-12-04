@@ -1,26 +1,204 @@
-<!doctype html>
+<!DOCTYPE html>
 
 <html lang="en">
+
 <head>
-	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
 
 	<title>i.matdoes.dev</title>
-	<meta name="description" content="Simple anonymous image host.">
+	<meta name="description" content="Simple anonymous image host." />
 
-	<meta property="og:title" content="A i.matdoes.dev">
-	<meta property="og:type" content="website">
-	<meta property="og:url" content="https://i.matdoes.dev">
-	<meta property="og:description" content="Simple anonymous image host.">
+	<meta property="og:title" content="A i.matdoes.dev" />
+	<meta property="og:type" content="website" />
+	<meta property="og:url" content="https://i.matdoes.dev" />
+	<meta property="og:description" content="Simple anonymous image host." />
 
-	<link rel="stylesheet" href="/styles.css">
+	<script>
+		document.addEventListener('DOMContentLoaded', () => {
+			const formEl = document.getElementById('form')
+			const imageInputEl = document.getElementById('image-input')
+
+			imageInputEl.addEventListener('change', () => {
+				if (imageInputEl.files.length > 0) {
+					formEl.submit()
+				}
+			})
+		})
+	</script>
+
+	<style>
+		:root {
+			--theme-color: #ff1493;
+			--theme-color-darker: #da1376;
+			--theme-color-lighter: #f77eba;
+		}
+
+		body,
+		html {
+			height: 100%;
+		}
+
+		*,
+		*::before,
+		*::after {
+			box-sizing: border-box;
+		}
+
+		body {
+			margin: 0;
+			padding: 0;
+			font-family: sans-serif;
+			background: #111;
+			color: #fff;
+		}
+
+		main {
+			display: grid;
+			grid-template-rows: 1fr;
+			grid-template-columns: 1fr;
+			justify-items: center;
+			align-items: center;
+			height: 100%;
+			font-size: 2em
+		}
+
+		.form-container {
+			width: fit-content;
+			height: fit-content;
+			display: relative
+		}
+
+		h1 {
+			text-align: center;
+			margin: 0;
+			font-family: monospace;
+		}
+
+		.subtitle {
+			margin: 0;
+			font-size: .8em;
+			color: #555;
+			font-weight: normal;
+			text-align: center;
+			display: block;
+			width: 100%;
+			margin-bottom: .5rem;
+		}
+
+		a {
+			text-align: center;
+			display: block;
+			width: 100%;
+			color: var(--theme-color-darker);
+			transition: color 100ms;
+		}
+
+		a:hover {
+			color: var(--theme-color)
+		}
+
+		hr {
+			opacity: .1;
+			color: #fff
+		}
+
+		.important-title-part {
+			color: var(--theme-color);
+		}
+
+
+		button,
+		input,
+		.button {
+			width: fit-content;
+			margin: 0 auto;
+		}
+
+		button,
+		.button {
+			background-color: var(--theme-color);
+			color: inherit;
+			border: .1em solid var(--theme-color-lighter);
+			padding: .2em;
+			font-size: .7em;
+			border-radius: .2em;
+			cursor: pointer;
+			display: block;
+		}
+
+		#image-input {
+			display: none
+		}
+
+		.upload-button {
+			display: none
+		}
+
+		.image-input-button::after {
+			content: 'Upload image'
+		}
+
+		form {
+			display: grid;
+			grid-template-rows: 1fr;
+			grid-template-columns: 1fr;
+			align-items: center;
+			width: fit-content;
+			margin: 0 auto;
+		}
+
+		label {
+			width: fit-content;
+			height: fit-content;
+			display: block;
+			margin: 0 auto;
+		}
+	</style>
+	<noscript>
+		<style>
+			.image-input-label {
+				display: inline-block;
+				width: fit-content;
+			}
+
+			.upload-button {
+				display: inline-block
+			}
+
+			.image-input-button::after {
+				content: 'Select image'
+			}
+
+			form {
+				display: grid;
+				grid-template-rows: 1fr;
+				grid-template-columns: auto auto;
+				align-items: center;
+				width: fit-content;
+				margin: 0 auto;
+				gap: .25em
+			}
+		</style>
+	</noscript>
 </head>
 
 <body>
-	<form method="post" enctype="multipart/form-data" action="/upload">
-		<input type="file" id="image-input" name="image"
-			 accept="image/*">
-		<button>Upload</button>
-	 </form>
+	<main>
+		<div class="form-container">
+			<h1><span class="important-title-part">i</span>.matdoes.dev</h1>
+			<p class="subtitle">An extremely simple image host</p>
+			<a href="//github.com/mat-1/rust-image-host">Source code</a>
+			<hr />
+			<form method="post" enctype="multipart/form-data" action="/upload" id="form">
+				<label for="image-input" class="image-input-label">
+					<span class="button image-input-button"></span>
+				</label>
+				<button class="upload-button">Upload</button>
+				<input type="file" id="image-input" name="image" accept="image/*" />
+			</form>
+		</div>
+	</main>
 </body>
+
 </html>
