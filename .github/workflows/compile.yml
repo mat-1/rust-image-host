@@ -1,18 +1,23 @@
-on: [push]
+# basically stolen from https://github.com/spikecodes/image-host/blob/main/.github/workflows/rust.yml
 
 name: CI
 
+on:
+  push:
+    paths-ignore:
+      - "**.md"
+    branches:
+      - main
+
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
-  build_and_test:
-    name: Rust project
+  build:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v2
-
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
 
       - name: Cache Packages
         uses: Swatinem/rust-cache@v1
@@ -25,3 +30,27 @@ jobs:
         with:
           name: image-host
           path: target/release/image-host
+
+      - name: Versions
+        id: version
+        run: |
+          echo "::set-output name=version::$(cargo metadata --format-version 1 --no-deps | jq .packages[0].version -r | sed 's/^/v/')"
+          echo "::set-output name=tag::$(git describe --tags)"
+
+      - name: Calculate SHA512 checksum
+        run: sha512sum target/release/image-host > image-host.sha512
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: github.base_ref != 'main'
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: ${{ steps.version.outputs.version }} - NAME
+          draft: true
+          files: |
+            target/release/image-host
+            image-host.sha512
+          body: |
+            - ${{ github.event.head_commit.message }} ${{ github.sha }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
