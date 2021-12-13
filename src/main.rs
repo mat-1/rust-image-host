@@ -6,8 +6,6 @@ mod util;
 
 use log::info;
 use rocket::response::Redirect;
-use rocket_dyn_templates::Template;
-use std::collections::HashMap;
 
 extern crate rocket_multipart_form_data;
 
@@ -71,7 +69,7 @@ async fn upload_image_route(
             None => return Err("No mimetype".to_string()),
         };
 
-        let encoded_image = encoding::image_path_to_encoded(&_path, &content_type_string).await?;
+        let encoded_image = encoding::image_path_to_encoded(_path, &content_type_string).await?;
 
         let image_id = match db::generate_image_id(&images_collection.images).await {
             Ok(image_id) => image_id,

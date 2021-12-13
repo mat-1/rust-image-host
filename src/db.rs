@@ -86,7 +86,7 @@ pub async fn generate_image_id(
     images_collection: &Collection<Document>,
 ) -> Result<String, mongodb::error::Error> {
     let mut id = util::generate_random_id(5);
-    while check_image_exists(&images_collection, id.clone()).await? {
+    while check_image_exists(images_collection, id.clone()).await? {
         id = util::generate_random_id(5);
     }
     Ok(id)
