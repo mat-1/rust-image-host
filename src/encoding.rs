@@ -19,6 +19,7 @@ pub struct EncodeResult {
 pub async fn image_path_to_encoded<'a>(
     path: &'a Path,
     content_type: &'a str,
+    opts: FromImageOptions,
 ) -> Result<EncodeResult, String> {
     // read the bytes of the file into an ImageReader
     let mut read_image = match ImageReader::open(path) {
@@ -34,7 +35,7 @@ pub async fn image_path_to_encoded<'a>(
         Err(e) => return Err(e.to_string()),
     };
 
-    from_image(decoded_image, FromImageOptions::default()).await
+    from_image(decoded_image, opts).await
 }
 
 struct CompressedImageResult {
@@ -74,7 +75,7 @@ fn to_png(im: &DynamicImage) -> Result<CompressedImageResult, String> {
     })
 }
 
-struct FromImageOptions {
+pub struct FromImageOptions {
     /// The max width and height of the image
     pub max_size: u32,
     /// Whether it should also try compressing the image with PNG, this will be slower and often unnecessary

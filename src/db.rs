@@ -18,8 +18,17 @@ pub struct Collections {
 
 pub struct NewImage<'a> {
     pub id: &'a String,
+    pub size: (u32, u32),
+
+    /// How optimized the image is.
+    /// 0 means the image was *just* uploaded with minimal optimization.
+    pub optim_level: u8,
+
     pub data: &'a Vec<u8>,
     pub content_type: &'a str,
+
+    pub thumbnail_data: &'a Vec<u8>,
+    pub thumbnail_content_type: &'a str,
 }
 
 /// Check if the image with the given id exists
@@ -103,6 +112,10 @@ pub async fn insert_image(
                 "_id": image.id,
                 "data": bson::Binary { subtype: BinarySubtype::Generic, bytes: image.data.to_vec() },
                 "content_type": image.content_type,
+
+                "thumbnail_data": bson::Binary { subtype: BinarySubtype::Generic, bytes: image.thumbnail_data.to_vec() },
+                "thumbnail_content_type": image.thumbnail_content_type,
+
                 "date": bson::DateTime::now(),
                 "last_seen": bson::DateTime::now(),
             },

@@ -2,10 +2,14 @@
 extern crate rocket;
 mod db;
 mod encoding;
+mod optimization_queue;
 mod util;
 
 use log::info;
+use optimization_queue::{optimize_images, OptimizationQueue};
+use rocket::fairing::AdHoc;
 use rocket::response::Redirect;
+use tokio::join;
 
 extern crate rocket_multipart_form_data;
 
@@ -69,18 +73,50 @@ async fn upload_image_route(
             None => return Err("No mimetype".to_string()),
         };
 
-        let encoded_image = encoding::image_path_to_encoded(_path, &content_type_string).await?;
+        // When initially encoding, we just do a simple webp compression
+        // so the images can be compressed quickly. Later, the images will be
+        // more heavily compressed and tested against several compression
+        // algorithms to get the smallest possible size
+
+        let encoded_image_future = encoding::image_path_to_encoded(
+            _path,
+            &content_type_string,
+            encoding::FromImageOptions::default(),
+        );
+        // we generate a low quality thumbnail alongside the image
+        let encoded_thumbnail_future = encoding::image_path_to_encoded(
+            _path,
+            &content_type_string,
+            encoding::FromImageOptions {
+                max_size: 128,
+                ..encoding::FromImageOptions::default()
+            },
+        );
+
+        // encode the full image and thumbnail at the same time
+        let (encoded_image_result, encoded_thumbnail_result) =
+            join!(encoded_image_future, encoded_thumbnail_future);
+        let (encoded_image, encoded_thumbnail) = (encoded_image_result?, encoded_thumbnail_result?);
 
         let image_id = match db::generate_image_id(&images_collection.images).await {
             Ok(image_id) => image_id,
             Err(e) => return Err(e.to_string()),
         };
+
         let insert_result = db::insert_image(
             &images_collection.images,
             &db::NewImage {
                 id: &image_id,
+
                 data: &encoded_image.data,
                 content_type: &encoded_image.content_type,
+
+                thumbnail_data: &encoded_thumbnail.data,
+                thumbnail_content_type: &encoded_thumbnail.content_type,
+
+                size: encoded_image.size,
+
+                optim_level: 0,
             },
         )
         .await;
@@ -144,10 +180,24 @@ async fn rocket() -> _ {
 
     println!("Connected to database");
 
-    rocket::build()
-        .manage(db::Collections {
-            images: images_collection,
+    let optimization_queue = OptimizationQueue::new();
+
+    let collections = db::Collections {
+        images: images_collection,
+    };
+
+    let fairing = AdHoc::on_liftoff("myTask", |_rocket| {
+        Box::pin(async move {
+            _rocket;
         })
+    });
+
+    // tokio::spawn(optimize_images(&optimization_queue, &collections.images));
+
+    rocket::build()
+        .manage(collections)
+        .manage(optimization_queue)
+        .attach(fairing)
         .mount(
             "/",
             routes![
