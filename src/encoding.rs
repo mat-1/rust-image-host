@@ -8,6 +8,8 @@ use image::io::Reader as ImageReader;
 use image::DynamicImage;
 use image::GenericImageView;
 use std::path::Path;
+use tokio::task;
+use tokio::task::JoinHandle;
 
 pub struct EncodeResult {
     pub data: Vec<u8>,
@@ -135,7 +137,10 @@ mod tests {
 }
 
 /// Convert a dynamic image into an optimized image
-pub async fn from_image(im: DynamicImage, opts: FromImageOptions) -> Result<EncodeResult, String> {
+pub async fn from_image<'a>(
+    im: &'a DynamicImage,
+    opts: FromImageOptions,
+) -> Result<EncodeResult, String> {
     let (original_width, original_height) = im.dimensions();
 
     // if the image is too big, resize it to be 512x512
@@ -150,15 +155,21 @@ pub async fn from_image(im: DynamicImage, opts: FromImageOptions) -> Result<Enco
     // we have to clone `im` because it will get moved
     let png_im = im.clone();
 
-    let mut futures: Vec<BoxFuture<'static, Result<CompressedImageResult, String>>> =
-        vec![Box::pin(util::run_thread(move || to_webp(&im)))];
+    let owned_im = im.clone();
+
+    let mut futures: Vec<JoinHandle<Result<CompressedImageResult, String>>> =
+        vec![task::spawn_blocking(move || to_webp(&owned_im))];
 
     if opts.optimize_png {
-        futures.push(Box::pin(util::run_thread(move || to_png(&png_im))));
+        futures.push(task::spawn_blocking(move || to_png(&png_im)));
     }
 
     // unbox the futures and join them
-    let future_results = join_all(futures).await;
+    let future_results = join_all(futures)
+        .await
+        .iter()
+        .map(|r| r.unwrap().as_ref())
+        .collect::<Vec<_>>();
 
     // if any of the futures failed, return the error
     if future_results.iter().any(|r| r.is_err()) {
@@ -173,7 +184,7 @@ pub async fn from_image(im: DynamicImage, opts: FromImageOptions) -> Result<Enco
     // find which one is smallest and set image_bytes and content_type
     let compressed_image_result = future_results
         .iter()
-        .map(|r| r.as_ref().unwrap())
+        .map(|r| r.unwrap())
         .min_by_key(|r| r.data.len())
         .unwrap();
 

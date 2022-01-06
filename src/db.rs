@@ -116,7 +116,7 @@ pub async fn insert_image(
                 "$setOnInsert": {
                     "date": bson::DateTime::now(),                    
                     "last_seen": bson::DateTime::now(),
-                }
+                },
                 "$set": {
                     "data": bson::Binary { subtype: BinarySubtype::Generic, bytes: image.data.to_vec() },
                     "content_type": image.content_type,

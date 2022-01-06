@@ -6,8 +6,6 @@ mod optimization;
 mod util;
 
 use log::info;
-use optimization::{ OptimizationQueue};
-use rocket::fairing::AdHoc;
 use rocket::response::Redirect;
 use tokio::join;
 
@@ -184,17 +182,13 @@ async fn rocket() -> _ {
         images: images_collection,
     };
 
-    rocket::build()
-        .manage(collections)
-        .manage(optimization)
-        .attach(fairing)
-        .mount(
-            "/",
-            routes![
-                index,
-                upload_image_route,
-                view_image_route,
-                redirect_image_route
-            ],
-        )
+    rocket::build().manage(collections).mount(
+        "/",
+        routes![
+            index,
+            upload_image_route,
+            view_image_route,
+            redirect_image_route
+        ],
+    )
 }
