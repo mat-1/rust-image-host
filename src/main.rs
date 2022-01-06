@@ -5,21 +5,16 @@ mod db;
 mod encoding;
 mod util;
 
+use dotenv::dotenv;
 use log::info;
-use rocket::response::Redirect;
-use tokio::join;
-
-extern crate rocket_multipart_form_data;
-
 use rocket::http::{ContentType, Header};
+use rocket::response::Redirect;
 use rocket::Data;
 use rocket::State;
-
 use rocket_multipart_form_data::{
     mime, MultipartFormData, MultipartFormDataField, MultipartFormDataOptions,
 };
-
-use dotenv::dotenv;
+use tokio::join;
 
 #[derive(Responder)]
 #[response(status = 200)]
@@ -179,8 +174,6 @@ async fn redirect_image_route(id: String) -> Redirect {
 
 #[launch]
 async fn rocket() -> _ {
-    env_logger::init();
-
     info!("Starting server");
 
     dotenv().ok();
