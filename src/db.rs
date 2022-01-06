@@ -125,6 +125,8 @@ pub async fn insert_image(
 
                     "thumbnail_data": bson::Binary { subtype: BinarySubtype::Generic, bytes: image.thumbnail_data.to_vec() },
                     "thumbnail_content_type": image.thumbnail_content_type,
+
+                    "optim_level": image.optim_level as i32
                 }
             },
             UpdateOptions::builder().upsert(true).build()
