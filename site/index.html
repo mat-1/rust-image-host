@@ -51,15 +51,17 @@
 			font-family: sans-serif;
 			background: #111;
 			color: #fff;
-		}
 
-		main {
+
 			display: grid;
 			grid-template-rows: 1fr;
 			grid-template-columns: 1fr;
 			justify-items: center;
 			align-items: center;
 			height: 100%;
+		}
+
+		main {
 			font-size: 2em
 		}
 
@@ -154,6 +156,10 @@
 			display: block;
 			margin: 0 auto;
 		}
+
+		footer {
+			margin-bottom: .25rem;
+		}
 	</style>
 	<noscript>
 		<style>
@@ -188,7 +194,6 @@
 		<div class="form-container">
 			<h1><span class="important-title-part">i</span>.matdoes.dev</h1>
 			<p class="subtitle">An extremely simple image host</p>
-			<a href="//github.com/mat-1/rust-image-host">Source code</a>
 			<hr />
 			<form method="post" enctype="multipart/form-data" action="/upload" id="form">
 				<label for="image-input" class="image-input-label">
@@ -199,6 +204,9 @@
 			</form>
 		</div>
 	</main>
+	<footer>
+		<a href="//github.com/mat-1/rust-image-host">Source code</a>
+	</footer>
 </body>
 
 </html>

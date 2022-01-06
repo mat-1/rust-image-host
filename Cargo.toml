@@ -1,26 +1,25 @@
 [package]
+edition = "2021"
 name = "image-host"
 version = "0.1.5"
-edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+bson = "^2.0.0"
+dotenv = "^0.15.0"
+futures = "^0.3.18"
+image = "^0.23.14"
+log = "^0.4"
+mongodb = "^2.0.2"
+oxipng = "^5.0.1"
+rand = "^0.8.4"
+rayon = "^1.5.1"
 rocket = "^0.5.0-rc.1"
 rocket-multipart-form-data = "^0.10.0"
-image = "^0.23.14"
-mongodb = "^2.0.2"
-dotenv = "^0.15.0"
-bson = "^2.0.0"
-rand = "^0.8.4"
-log = "^0.4"
-webp = "^0.2.0"
-oxipng = "^5.0.1"
-rayon = "^1.5.1"
 tokio = "^1.14.0"
-futures = "^0.3.18"
+webp = "^0.2.0"
 
 [dependencies.rocket_dyn_templates]
-version = "^0.1.0-rc.1"
 features = ["tera"]
-
+version = "^0.1.0-rc.1"
