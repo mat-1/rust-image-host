@@ -94,10 +94,12 @@ pub async fn connect() -> Result<mongodb::Collection<bson::Document>, String> {
 pub async fn generate_image_id(
     images_collection: &Collection<Document>,
 ) -> Result<String, mongodb::error::Error> {
+    info!("generating image id");
     let mut id = util::generate_random_id(5);
     while check_image_exists(images_collection, id.clone()).await? {
         id = util::generate_random_id(5);
     }
+    info!("generated image id");
     Ok(id)
 }
 
@@ -106,7 +108,7 @@ pub async fn insert_image(
     images_collection: &Collection<Document>,
     image: &NewImage<'_>,
 ) -> Result<mongodb::results::UpdateResult, mongodb::error::Error> {
-    println!("inserting doc");
+    info!("inserting doc");
     images_collection
         .update_one(
             doc! {

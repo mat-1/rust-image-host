@@ -1,8 +1,8 @@
 #[macro_use]
 extern crate rocket;
+mod background_optimization;
 mod db;
 mod encoding;
-mod optimization;
 mod util;
 
 use log::info;
@@ -90,16 +90,25 @@ async fn upload_image_route(
                 ..encoding::FromImageOptions::default()
             },
         );
+        let image_id_future = db::generate_image_id(&images_collection.images);
+
+        info!("Finished making futures image, doing encoding!");
 
         // encode the full image and thumbnail at the same time
-        let (encoded_image_result, encoded_thumbnail_result) =
-            join!(encoded_image_future, encoded_thumbnail_future);
+        // also figure out the image id while we're doing this
+        let (encoded_image_result, encoded_thumbnail_result, image_id_result) = join!(
+            encoded_image_future,
+            encoded_thumbnail_future,
+            image_id_future
+        );
         let (encoded_image, encoded_thumbnail) = (encoded_image_result?, encoded_thumbnail_result?);
 
-        let image_id = match db::generate_image_id(&images_collection.images).await {
+        let image_id = match image_id_result {
             Ok(image_id) => image_id,
             Err(e) => return Err(e.to_string()),
         };
+
+        info!("Inserting image into database");
 
         let insert_result = db::insert_image(
             &images_collection.images,
@@ -123,7 +132,7 @@ async fn upload_image_route(
             return Err(insert_result.err().unwrap().to_string());
         }
 
-        info!("uploading image {}", &image_id);
+        info!("uploaded image {}", &image_id);
 
         Ok(Redirect::to(uri!(view_image_route(image_id))))
     } else {
@@ -170,7 +179,9 @@ async fn redirect_image_route(id: String) -> Redirect {
 
 #[launch]
 async fn rocket() -> _ {
-    println!("Starting server");
+    env_logger::init();
+
+    info!("Starting server");
 
     dotenv().ok();
 
@@ -181,6 +192,8 @@ async fn rocket() -> _ {
     let collections = db::Collections {
         images: images_collection,
     };
+
+    // optimize_images_from_database.await;
 
     rocket::build().manage(collections).mount(
         "/",

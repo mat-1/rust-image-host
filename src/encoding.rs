@@ -1,13 +1,12 @@
-//! Encode images into Webp
+//! Encode images into the formats that we use
 
 use crate::util;
 use futures::future::join_all;
-use futures::future::BoxFuture;
-use image::imageops::FilterType::Lanczos3;
+use image::imageops::FilterType;
 use image::io::Reader as ImageReader;
 use image::DynamicImage;
 use image::GenericImageView;
-use std::path::Path;
+use std::{fmt::Debug, path::Path};
 use tokio::task;
 use tokio::task::JoinHandle;
 
@@ -47,11 +46,13 @@ struct CompressedImageResult {
 
 /// Convert a dynamic image into a Webp
 fn to_webp(im: &DynamicImage) -> Result<CompressedImageResult, String> {
+    info!("encoding webp");
     let encoder = match webp::Encoder::from_image(im) {
         Ok(i) => i,
         Err(e) => return Err(e.to_string()),
     };
     let image_bytes = (*encoder.encode(90.0)).to_vec();
+    info!("encoded webp");
 
     Ok(CompressedImageResult {
         data: image_bytes,
@@ -77,6 +78,7 @@ fn to_png(im: &DynamicImage) -> Result<CompressedImageResult, String> {
     })
 }
 
+#[derive(Debug)]
 pub struct FromImageOptions {
     /// The max width and height of the image
     pub max_size: u32,
@@ -138,38 +140,53 @@ mod tests {
 
 /// Convert a dynamic image into an optimized image
 pub async fn from_image<'a>(
-    im: &'a DynamicImage,
+    original_im: DynamicImage,
     opts: FromImageOptions,
 ) -> Result<EncodeResult, String> {
-    let (original_width, original_height) = im.dimensions();
+    info!("from_image {:?}", opts);
+    let (original_width, original_height) = original_im.dimensions();
+    info!("dimensions: {} {}", original_width, original_height);
 
     // if the image is too big, resize it to be 512x512
-    let size = if original_width > opts.max_size || original_height > opts.max_size {
+    let (size, im) = if original_width > opts.max_size || original_height > opts.max_size {
         let new_size = clamp_im_size(original_width, original_height, opts.max_size);
-        im.resize(512, 512, Lanczos3);
-        new_size
+
+        // we use nearest resizing because it's fast, in the future i should use fast_image_resize so it's even faster, maybe
+        // task::spawn_blocking(move || im.resize_exact(512, 512, FilterType::Nearest))
+        //     .await
+        //     .unwrap();
+        let new_im = task::spawn_blocking(move || {
+            original_im.resize_exact(new_size.0, new_size.1, FilterType::Nearest)
+        })
+        .await
+        .unwrap();
+
+        (new_size, new_im)
     } else {
-        (original_width, original_height)
+        ((original_width, original_height), original_im)
     };
+    info!("resized");
 
     // we have to clone `im` because it will get moved
+    // it's probably possible to not have to clone but i don't think it matters
+    info!("cloning");
+    let webp_im = im.clone();
     let png_im = im.clone();
-
-    let owned_im = im.clone();
+    info!("cloned, now creating futures (this should be instant)");
 
     let mut futures: Vec<JoinHandle<Result<CompressedImageResult, String>>> =
-        vec![task::spawn_blocking(move || to_webp(&owned_im))];
+        vec![task::spawn_blocking(move || to_webp(&webp_im))];
 
     if opts.optimize_png {
         futures.push(task::spawn_blocking(move || to_png(&png_im)));
     }
-
+    info!("created futures; joining");
     // unbox the futures and join them
-    let future_results = join_all(futures)
-        .await
-        .iter()
-        .map(|r| r.unwrap().as_ref())
-        .collect::<Vec<_>>();
+    let future_results = join_all(futures).await;
+    info!("Did compression");
+
+    // unwrap the first set of results
+    let future_results: Vec<_> = future_results.iter().map(|r| r.as_ref().unwrap()).collect();
 
     // if any of the futures failed, return the error
     if future_results.iter().any(|r| r.is_err()) {
@@ -184,9 +201,10 @@ pub async fn from_image<'a>(
     // find which one is smallest and set image_bytes and content_type
     let compressed_image_result = future_results
         .iter()
-        .map(|r| r.unwrap())
+        .map(|r| r.as_ref().unwrap())
         .min_by_key(|r| r.data.len())
         .unwrap();
+    info!("finished from_image {:?}", opts);
 
     Ok(EncodeResult {
         data: compressed_image_result.data.to_vec(),
