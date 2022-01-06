@@ -2,11 +2,11 @@
 extern crate rocket;
 mod db;
 mod encoding;
-mod optimization_queue;
+mod optimization;
 mod util;
 
 use log::info;
-use optimization_queue::{optimize_images, OptimizationQueue};
+use optimization::{ OptimizationQueue};
 use rocket::fairing::AdHoc;
 use rocket::response::Redirect;
 use tokio::join;
@@ -180,23 +180,13 @@ async fn rocket() -> _ {
 
     println!("Connected to database");
 
-    let optimization_queue = OptimizationQueue::new();
-
     let collections = db::Collections {
         images: images_collection,
     };
 
-    let fairing = AdHoc::on_liftoff("myTask", |_rocket| {
-        Box::pin(async move {
-            _rocket;
-        })
-    });
-
-    // tokio::spawn(optimize_images(&optimization_queue, &collections.images));
-
     rocket::build()
         .manage(collections)
-        .manage(optimization_queue)
+        .manage(optimization)
         .attach(fairing)
         .mount(
             "/",

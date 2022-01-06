@@ -8,7 +8,7 @@ use std::env;
 
 use mongodb::bson::{doc, Document};
 use mongodb::{
-    options::{ClientOptions, ResolverConfig},
+    options::{ClientOptions, ResolverConfig, UpdateOptions},
     Client, Collection,
 };
 
@@ -101,25 +101,31 @@ pub async fn generate_image_id(
     Ok(id)
 }
 
+/// Insert or update the content of an image
 pub async fn insert_image(
     images_collection: &Collection<Document>,
     image: &NewImage<'_>,
-) -> Result<mongodb::results::InsertOneResult, mongodb::error::Error> {
+) -> Result<mongodb::results::UpdateResult, mongodb::error::Error> {
     println!("inserting doc");
     images_collection
-        .insert_one(
+        .update_one(
             doc! {
                 "_id": image.id,
-                "data": bson::Binary { subtype: BinarySubtype::Generic, bytes: image.data.to_vec() },
-                "content_type": image.content_type,
-
-                "thumbnail_data": bson::Binary { subtype: BinarySubtype::Generic, bytes: image.thumbnail_data.to_vec() },
-                "thumbnail_content_type": image.thumbnail_content_type,
-
-                "date": bson::DateTime::now(),
-                "last_seen": bson::DateTime::now(),
             },
-            None,
+            doc! {
+                "$setOnInsert": {
+                    "date": bson::DateTime::now(),                    
+                    "last_seen": bson::DateTime::now(),
+                }
+                "$set": {
+                    "data": bson::Binary { subtype: BinarySubtype::Generic, bytes: image.data.to_vec() },
+                    "content_type": image.content_type,
+
+                    "thumbnail_data": bson::Binary { subtype: BinarySubtype::Generic, bytes: image.thumbnail_data.to_vec() },
+                    "thumbnail_content_type": image.thumbnail_content_type,
+                }
+            },
+            UpdateOptions::builder().upsert(true).build()
         )
         .await
 }

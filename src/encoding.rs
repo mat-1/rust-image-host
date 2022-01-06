@@ -78,7 +78,7 @@ fn to_png(im: &DynamicImage) -> Result<CompressedImageResult, String> {
 pub struct FromImageOptions {
     /// The max width and height of the image
     pub max_size: u32,
-    /// Whether it should also try compressing the image with PNG, this will be slower and often unnecessary
+    /// Whether it should also try compressing the image with PNG in parallel, this will be slower and often unnecessary
     pub optimize_png: bool,
 }
 
@@ -135,7 +135,7 @@ mod tests {
 }
 
 /// Convert a dynamic image into an optimized image
-async fn from_image(im: DynamicImage, opts: FromImageOptions) -> Result<EncodeResult, String> {
+pub async fn from_image(im: DynamicImage, opts: FromImageOptions) -> Result<EncodeResult, String> {
     let (original_width, original_height) = im.dimensions();
 
     // if the image is too big, resize it to be 512x512
