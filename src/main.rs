@@ -5,8 +5,10 @@ mod db;
 mod encoding;
 mod util;
 
+use background_optimization::{optimize_image_and_update, optimize_images_from_database};
 use dotenv::dotenv;
 use log::info;
+use rocket::fairing::AdHoc;
 use rocket::http::{ContentType, Header};
 use rocket::response::Redirect;
 use rocket::Data;
@@ -55,11 +57,11 @@ async fn upload_image_route(
 
         let _content_type = &file_field.content_type;
         let _file_name = &file_field.file_name;
-        let _path = &file_field.path;
+        let path = file_field.path.clone();
 
         println!("content type: {:?}", _content_type);
         println!("file name: {:?}", _file_name);
-        println!("path: {:?}", _path);
+        println!("path: {:?}", path);
 
         let content_type_string = match _content_type {
             Some(t) => t.to_string(),
@@ -72,13 +74,13 @@ async fn upload_image_route(
         // algorithms to get the smallest possible size
 
         let encoded_image_future = encoding::image_path_to_encoded(
-            _path,
+            Box::new(path.clone()),
             &content_type_string,
             encoding::FromImageOptions::default(),
         );
         // we generate a low quality thumbnail alongside the image
         let encoded_thumbnail_future = encoding::image_path_to_encoded(
-            _path,
+            Box::new(path),
             &content_type_string,
             encoding::FromImageOptions {
                 max_size: 128,
@@ -96,6 +98,9 @@ async fn upload_image_route(
             encoded_thumbnail_future,
             image_id_future
         );
+
+        info!("Finished join");
+
         let (encoded_image, encoded_thumbnail) = (encoded_image_result?, encoded_thumbnail_result?);
 
         let image_id = match image_id_result {
@@ -186,9 +191,18 @@ async fn rocket() -> _ {
         images: images_collection,
     };
 
+    let fairing = AdHoc::on_liftoff("myTask", |r| {
+        Box::pin(async move {
+            let state = r.state::<db::Collections>().expect("No state found");
+            optimize_images_from_database(&state.images)
+                .await
+                .expect("Failed optimizing images");
+        })
+    });
+
     // optimize_images_from_database.await;
 
-    rocket::build().manage(collections).mount(
+    rocket::build().manage(collections).attach(fairing).mount(
         "/",
         routes![
             index,

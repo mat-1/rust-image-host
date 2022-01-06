@@ -6,7 +6,7 @@ use image::imageops::FilterType;
 use image::io::Reader as ImageReader;
 use image::DynamicImage;
 use image::GenericImageView;
-use std::{fmt::Debug, path::Path};
+use std::{fmt::Debug, path::PathBuf};
 use tokio::task;
 use tokio::task::JoinHandle;
 
@@ -18,23 +18,32 @@ pub struct EncodeResult {
 
 /// Encode an image as a Webp from the given file path
 pub async fn image_path_to_encoded<'a>(
-    path: &'a Path,
+    path: Box<PathBuf>,
     content_type: &'a str,
     opts: FromImageOptions,
 ) -> Result<EncodeResult, String> {
+    info!("reading file");
     // read the bytes of the file into an ImageReader
-    let mut read_image = match ImageReader::open(path) {
+
+    let read_image = task::spawn_blocking(move || ImageReader::open(*path))
+        .await
+        .unwrap();
+
+    let mut read_image = match read_image {
         Ok(read_image) => read_image,
         Err(e) => return Err(e.to_string()),
     };
+    info!("read filem decoding");
 
     // set the format of the ImageReader to the format of the image
     read_image.set_format(util::mimetype_to_format(content_type));
 
-    let decoded_image = match read_image.decode() {
-        Ok(decoded_image) => decoded_image,
-        Err(e) => return Err(e.to_string()),
-    };
+    let decoded_image: DynamicImage = task::spawn_blocking(move || read_image.decode())
+        .await
+        .unwrap()
+        .map_err(|_| "Error decoding image".to_string())?;
+
+    info!("decoded file");
 
     from_image(decoded_image, opts).await
 }

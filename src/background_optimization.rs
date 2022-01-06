@@ -13,7 +13,7 @@ use mongodb::bson::doc;
 use mongodb::Collection;
 
 /// Optimize an image from the database and bump its compression level.
-async fn optimize_image_and_update(
+pub async fn optimize_image_and_update(
     images_collection: &Collection<Document>,
     image_doc: Document,
 ) -> Result<(), String> {
