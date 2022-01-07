@@ -4,21 +4,20 @@ use crate::util;
 
 use bson::spec::BinarySubtype;
 use log::info;
-use mongodb::options::{FindOneAndUpdateOptions, ReturnDocument};
-use std::env;
-
-use mongodb::bson::{doc, Document};
 use mongodb::{
-    options::{ClientOptions, ResolverConfig},
+    bson::{doc, Document},
+    options::{ClientOptions, FindOneAndUpdateOptions, ResolverConfig, ReturnDocument},
     Client, Collection,
 };
+use std::env;
+use util::ImageId;
 
 pub struct Collections {
     pub images: Collection<Document>,
 }
 
 pub struct NewImage<'a> {
-    pub id: &'a String,
+    pub id: &'a ImageId,
     pub size: (u32, u32),
 
     /// How optimized the image is.
@@ -35,7 +34,7 @@ pub struct NewImage<'a> {
 /// Check if the image with the given id exists
 pub async fn check_image_exists(
     images_collection: &Collection<Document>,
-    id: String,
+    id: ImageId,
 ) -> Result<bool, mongodb::error::Error> {
     let filter = doc! {"_id": id};
     let counted_documents = images_collection
@@ -94,7 +93,7 @@ pub async fn connect() -> Result<mongodb::Collection<bson::Document>, String> {
 /// Generate a random non-duplicate image id
 pub async fn generate_image_id(
     images_collection: &Collection<Document>,
-) -> Result<String, mongodb::error::Error> {
+) -> Result<ImageId, mongodb::error::Error> {
     info!("generating image id");
     let mut id = util::generate_random_id(5);
     while check_image_exists(images_collection, id.clone()).await? {
