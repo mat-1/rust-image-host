@@ -34,7 +34,7 @@ fn index() -> HtmlResponder {
     }
 }
 
-#[post("/upload", data = "<data>")]
+#[post("/", data = "<data>")]
 async fn upload_image_route(
     content_type: &ContentType,
     data: Data<'_>,
