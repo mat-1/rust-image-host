@@ -4,14 +4,12 @@ use crate::util;
 
 use bson::spec::BinarySubtype;
 use log::info;
-use mongodb::options::{FindOneAndUpdateOptions, ReturnDocument};
-use std::env;
-
-use mongodb::bson::{doc, Document};
 use mongodb::{
-    options::{ClientOptions, ResolverConfig},
+    bson::{doc, Document},
+    options::{ClientOptions, FindOneAndUpdateOptions, ResolverConfig, ReturnDocument},
     Client, Collection,
 };
+use std::env;
 
 pub struct Collections {
     pub images: Collection<Document>,

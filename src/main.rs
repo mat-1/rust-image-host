@@ -16,6 +16,7 @@ use rocket::{
 use rocket_multipart_form_data::{
     mime, MultipartFormData, MultipartFormDataField, MultipartFormDataOptions,
 };
+use std::path::PathBuf;
 use tokio::{join, task};
 
 #[derive(Responder)]
@@ -34,11 +35,91 @@ fn index() -> HtmlResponder {
     }
 }
 
+/// Upload an image to the database from the Pathbuf and metadata.
+async fn upload_image(
+    path: PathBuf,
+    content_type_string: String,
+    images_collection: &mongodb::Collection<mongodb::bson::Document>,
+) -> Result<String, String> {
+    let encoded_image_future = encoding::image_path_to_encoded(
+        Box::new(path.clone()),
+        &content_type_string,
+        encoding::FromImageOptions::default(),
+    );
+    // we generate a low quality thumbnail alongside the image
+    let encoded_thumbnail_future = encoding::image_path_to_encoded(
+        Box::new(path),
+        &content_type_string,
+        encoding::FromImageOptions {
+            max_size: 128,
+            ..encoding::FromImageOptions::default()
+        },
+    );
+    let image_id_future = db::generate_image_id(&images_collection);
+
+    info!("Finished making futures image, doing encoding!");
+
+    // encode the full image and thumbnail at the same time
+    // also figure out the image id while we're doing this
+    let (encoded_image_result, encoded_thumbnail_result, image_id_result) = join!(
+        encoded_image_future,
+        encoded_thumbnail_future,
+        image_id_future
+    );
+
+    info!("Finished join");
+
+    let (encoded_image, encoded_thumbnail) = (encoded_image_result?, encoded_thumbnail_result?);
+
+    let image_id = match image_id_result {
+        Ok(image_id) => image_id,
+        Err(e) => return Err(e.to_string()),
+    };
+
+    info!("Inserting image into database");
+
+    let insert_result = db::insert_image(
+        &images_collection,
+        &db::NewImage {
+            id: &image_id,
+
+            data: &encoded_image.data,
+            content_type: &encoded_image.content_type,
+
+            thumbnail_data: &encoded_thumbnail.data,
+            thumbnail_content_type: &encoded_thumbnail.content_type,
+
+            size: encoded_image.size,
+
+            optim_level: 0,
+        },
+    )
+    .await;
+    // db::insert_image(&images_collection.images, &image_id, &encoded_image.data).await;
+    if insert_result.is_err() {
+        return Err(insert_result.err().unwrap().to_string());
+    }
+
+    info!("uploaded image {}", &image_id);
+
+    let owned_images_collection = images_collection.clone();
+    // optimize the image more heavily in the background so we can serve it faster
+    task::spawn(async move {
+        // if it fails optimizing, we don't care
+        optimize_image_and_update(&owned_images_collection, insert_result.unwrap().unwrap())
+            .await
+            .ok();
+        info!("optimized!")
+    });
+
+    Ok(image_id)
+}
+
 #[post("/", data = "<data>")]
 async fn upload_image_route(
     content_type: &ContentType,
     data: Data<'_>,
-    images_collection: &State<db::Collections>,
+    collections: &State<db::Collections>,
 ) -> Result<Redirect, String> {
     let options = MultipartFormDataOptions::with_multipart_form_data_fields(vec![
         MultipartFormDataField::file("image")
@@ -68,81 +149,7 @@ async fn upload_image_route(
             None => return Err("No mimetype".to_string()),
         };
 
-        // When initially encoding, we just do a simple webp compression
-        // so the images can be compressed quickly. Later, the images will be
-        // more heavily compressed and tested against several compression
-        // algorithms to get the smallest possible size
-
-        let encoded_image_future = encoding::image_path_to_encoded(
-            Box::new(path.clone()),
-            &content_type_string,
-            encoding::FromImageOptions::default(),
-        );
-        // we generate a low quality thumbnail alongside the image
-        let encoded_thumbnail_future = encoding::image_path_to_encoded(
-            Box::new(path),
-            &content_type_string,
-            encoding::FromImageOptions {
-                max_size: 128,
-                ..encoding::FromImageOptions::default()
-            },
-        );
-        let image_id_future = db::generate_image_id(&images_collection.images);
-
-        info!("Finished making futures image, doing encoding!");
-
-        // encode the full image and thumbnail at the same time
-        // also figure out the image id while we're doing this
-        let (encoded_image_result, encoded_thumbnail_result, image_id_result) = join!(
-            encoded_image_future,
-            encoded_thumbnail_future,
-            image_id_future
-        );
-
-        info!("Finished join");
-
-        let (encoded_image, encoded_thumbnail) = (encoded_image_result?, encoded_thumbnail_result?);
-
-        let image_id = match image_id_result {
-            Ok(image_id) => image_id,
-            Err(e) => return Err(e.to_string()),
-        };
-
-        info!("Inserting image into database");
-
-        let insert_result = db::insert_image(
-            &images_collection.images,
-            &db::NewImage {
-                id: &image_id,
-
-                data: &encoded_image.data,
-                content_type: &encoded_image.content_type,
-
-                thumbnail_data: &encoded_thumbnail.data,
-                thumbnail_content_type: &encoded_thumbnail.content_type,
-
-                size: encoded_image.size,
-
-                optim_level: 0,
-            },
-        )
-        .await;
-        // db::insert_image(&images_collection.images, &image_id, &encoded_image.data).await;
-        if insert_result.is_err() {
-            return Err(insert_result.err().unwrap().to_string());
-        }
-
-        info!("uploaded image {}", &image_id);
-
-        let owned_images_collection = images_collection.images.clone();
-        // optimize the image more heavily in the background so we can serve it faster
-        task::spawn(async move {
-            // if it fails optimizing, we don't care
-            optimize_image_and_update(&owned_images_collection, insert_result.unwrap().unwrap())
-                .await
-                .ok();
-            info!("optimized!")
-        });
+        let image_id = upload_image(path, content_type_string, &collections.images).await?;
 
         Ok(Redirect::to(uri!(view_image_route(image_id))))
     } else {
