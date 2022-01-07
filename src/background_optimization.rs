@@ -11,6 +11,7 @@ use futures::stream::TryStreamExt;
 use image::io::Reader;
 use mongodb::bson::doc;
 use mongodb::Collection;
+use tokio::task;
 
 /// Optimize an image from the database and bump its compression level.
 pub async fn optimize_image_and_update(
@@ -20,7 +21,8 @@ pub async fn optimize_image_and_update(
     let image_id = image_doc.get_str("_id").expect("Image id must be a string");
     let image_bytes = image_doc
         .get_binary_generic("data")
-        .expect("data must be set");
+        .expect("data must be set")
+        .clone();
     let content_type = image_doc
         .get_str("content_type")
         .expect("content_type must be set");
@@ -33,7 +35,10 @@ pub async fn optimize_image_and_update(
 
     read_image.set_format(util::mimetype_to_format(content_type));
 
-    let image = read_image.decode().map_err(|e| e.to_string())?;
+    let image = task::spawn_blocking(|| read_image.decode())
+        .await
+        .unwrap()
+        .map_err(|e| e.to_string())?;
 
     let encoded_image_future = match optimization_level {
         0 => from_image(
@@ -76,7 +81,7 @@ pub async fn optimize_image_and_update(
         },
     )
     .await
-    .map_err(|e| "Inserting into database failed")?;
+    .map_err(|_| "Inserting into database failed")?;
 
     Ok(())
 }

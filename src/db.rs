@@ -9,7 +9,7 @@ use std::env;
 
 use mongodb::bson::{doc, Document};
 use mongodb::{
-    options::{ClientOptions, ResolverConfig, UpdateOptions},
+    options::{ClientOptions, ResolverConfig},
     Client, Collection,
 };
 

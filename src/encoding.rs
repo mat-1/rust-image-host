@@ -17,9 +17,9 @@ pub struct EncodeResult {
 }
 
 /// Encode an image as a Webp from the given file path
-pub async fn image_path_to_encoded<'a>(
+pub async fn image_path_to_encoded(
     path: Box<PathBuf>,
-    content_type: &'a str,
+    content_type: &'_ str,
     opts: FromImageOptions,
 ) -> Result<EncodeResult, String> {
     info!("reading file");
@@ -87,6 +87,7 @@ fn to_png(im: &DynamicImage) -> Result<CompressedImageResult, String> {
     })
 }
 
+#[non_exhaustive]
 #[derive(Debug)]
 pub struct FromImageOptions {
     /// The max width and height of the image

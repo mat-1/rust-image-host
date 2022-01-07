@@ -9,7 +9,6 @@ use background_optimization::{optimize_image_and_update, optimize_images_from_da
 use dotenv::dotenv;
 use log::info;
 use rocket::{
-    fairing::AdHoc,
     http::{ContentType, Header},
     response::Redirect,
     Data, State,
@@ -202,18 +201,14 @@ async fn rocket() -> _ {
         images: images_collection,
     };
 
-    let fairing = AdHoc::on_liftoff("optimize_images_from_database", |r| {
-        Box::pin(async move {
-            let state = r.state::<db::Collections>().expect("No state found");
-            optimize_images_from_database(&state.images)
-                .await
-                .expect("Failed optimizing images");
-        })
+    let owned_images_collection = collections.images.clone();
+    tokio::spawn(async move {
+        optimize_images_from_database(&owned_images_collection)
+            .await
+            .expect("Failed optimizing images");
     });
 
-    // optimize_images_from_database.await;
-
-    rocket::build().manage(collections).attach(fairing).mount(
+    rocket::build().manage(collections).mount(
         "/",
         routes![
             index,
