@@ -12,13 +12,19 @@ use image::io::Reader;
 use mongodb::bson::doc;
 use mongodb::Collection;
 use tokio::task;
+use util::ImageId;
 
 /// Optimize an image from the database and bump its compression level.
 pub async fn optimize_image_and_update(
     images_collection: &Collection<Document>,
     image_doc: Document,
 ) -> Result<(), String> {
-    let image_id = image_doc.get_str("_id").expect("Image id must be a string");
+    let image_id = ImageId(
+        image_doc
+            .get_str("_id")
+            .expect("Image id must be a string")
+            .to_string(),
+    );
     let image_bytes = image_doc
         .get_binary_generic("data")
         .expect("data must be set")
@@ -67,7 +73,7 @@ pub async fn optimize_image_and_update(
     db::insert_image(
         images_collection,
         &db::NewImage {
-            id: &image_id.to_string(),
+            id: &image_id,
 
             data: &encoded_image.data,
             content_type: &encoded_image.content_type,

@@ -18,6 +18,7 @@ use rocket_multipart_form_data::{
 };
 use std::path::PathBuf;
 use tokio::{join, task};
+use util::ImageId;
 
 #[derive(Responder)]
 #[response(status = 200)]
@@ -40,7 +41,7 @@ async fn upload_image(
     path: PathBuf,
     content_type_string: String,
     images_collection: &mongodb::Collection<mongodb::bson::Document>,
-) -> Result<String, String> {
+) -> Result<ImageId, String> {
     let encoded_image_future = encoding::image_path_to_encoded(
         Box::new(path.clone()),
         &content_type_string,
@@ -149,9 +150,10 @@ async fn upload_image_route(
             None => return Err("No mimetype".to_string()),
         };
 
-        let image_id = upload_image(path, content_type_string, &collections.images).await?;
+        let image_id: ImageId =
+            upload_image(path, content_type_string, &collections.images).await?;
 
-        Ok(Redirect::to(uri!(view_image_route(image_id))))
+        Ok(Redirect::to(uri!(view_image_route(image_id.to_string()))))
     } else {
         Err("no image selected :(".to_string())
     }
