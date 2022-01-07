@@ -8,15 +8,16 @@ mod util;
 use background_optimization::{optimize_image_and_update, optimize_images_from_database};
 use dotenv::dotenv;
 use log::info;
-use rocket::fairing::AdHoc;
-use rocket::http::{ContentType, Header};
-use rocket::response::Redirect;
-use rocket::Data;
-use rocket::State;
+use rocket::{
+    fairing::AdHoc,
+    http::{ContentType, Header},
+    response::Redirect,
+    Data, State,
+};
 use rocket_multipart_form_data::{
     mime, MultipartFormData, MultipartFormDataField, MultipartFormDataOptions,
 };
-use tokio::join;
+use tokio::{join, task};
 
 #[derive(Responder)]
 #[response(status = 200)]
@@ -134,6 +135,16 @@ async fn upload_image_route(
 
         info!("uploaded image {}", &image_id);
 
+        let owned_images_collection = images_collection.images.clone();
+        // optimize the image more heavily in the background so we can serve it faster
+        task::spawn(async move {
+            // if it fails optimizing, we don't care
+            optimize_image_and_update(&owned_images_collection, insert_result.unwrap().unwrap())
+                .await
+                .ok();
+            info!("optimized!")
+        });
+
         Ok(Redirect::to(uri!(view_image_route(image_id))))
     } else {
         Err("no image selected :(".to_string())
@@ -191,7 +202,7 @@ async fn rocket() -> _ {
         images: images_collection,
     };
 
-    let fairing = AdHoc::on_liftoff("myTask", |r| {
+    let fairing = AdHoc::on_liftoff("optimize_images_from_database", |r| {
         Box::pin(async move {
             let state = r.state::<db::Collections>().expect("No state found");
             optimize_images_from_database(&state.images)

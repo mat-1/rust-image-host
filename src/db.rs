@@ -4,6 +4,7 @@ use crate::util;
 
 use bson::spec::BinarySubtype;
 use log::info;
+use mongodb::options::{FindOneAndUpdateOptions, ReturnDocument};
 use std::env;
 
 use mongodb::bson::{doc, Document};
@@ -107,10 +108,10 @@ pub async fn generate_image_id(
 pub async fn insert_image(
     images_collection: &Collection<Document>,
     image: &NewImage<'_>,
-) -> Result<mongodb::results::UpdateResult, mongodb::error::Error> {
+) -> Result<Option<bson::Document>, mongodb::error::Error> {
     info!("inserting doc");
     images_collection
-        .update_one(
+        .find_one_and_update(
             doc! {
                 "_id": image.id,
             },
@@ -129,7 +130,7 @@ pub async fn insert_image(
                     "optim_level": image.optim_level as i32
                 }
             },
-            UpdateOptions::builder().upsert(true).build()
+            FindOneAndUpdateOptions ::builder().upsert(true).return_document(ReturnDocument ::After).build()
         )
         .await
 }

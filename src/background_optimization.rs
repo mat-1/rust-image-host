@@ -96,7 +96,8 @@ pub async fn optimize_images_from_database(
         .await
         .map_err(|e| e.to_string())?;
     while let Some(im) = images_cursor.try_next().await.map_err(|e| e.to_string())? {
-        optimize_image_and_update(images_collection, im).await?;
+        // if there's an error, just ignore it
+        optimize_image_and_update(images_collection, im).await.ok();
     }
 
     Ok(())
