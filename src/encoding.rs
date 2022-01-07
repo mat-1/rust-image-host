@@ -33,7 +33,7 @@ pub async fn image_path_to_encoded(
         Ok(read_image) => read_image,
         Err(e) => return Err(e.to_string()),
     };
-    info!("read filem decoding");
+    info!("decoding");
 
     // set the format of the ImageReader to the format of the image
     read_image.set_format(util::mimetype_to_format(content_type));

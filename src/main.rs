@@ -10,7 +10,7 @@ use dotenv::dotenv;
 use log::info;
 use rocket::{
     http::{ContentType, Header},
-    response::Redirect,
+    response::{content::Json, Redirect},
     Data, State,
 };
 use rocket_multipart_form_data::{
@@ -185,6 +185,61 @@ async fn view_image_route(
 #[get("/image/<id>")]
 async fn redirect_image_route(id: String) -> Redirect {
     Redirect::to(uri!(view_image_route(id)))
+}
+
+#[derive(Deserialize)]
+struct DocumentJson {
+    pub _id: String,
+
+    /// How optimized the image is.
+    /// 0 means the image was *just* uploaded with minimal optimization.
+    pub optim_level: u8,
+
+    pub data: Vec<u8>,
+    pub content_type: Str,
+
+    pub thumbnail_data: Vec<u8>,
+    pub thumbnail_content_type: String,
+}
+
+#[get("/json/<id>")]
+async fn get_image_json_route(
+    id: String,
+    images_collection: &State<db::Collections>,
+) -> Result<Json<DocumentJson>, String> {
+    let image_doc_option = match db::get_image(&images_collection.images, id).await {
+        Ok(image_doc) => image_doc,
+        Err(e) => return Err(e.to_string()),
+    };
+    let image_doc = match image_doc_option {
+        Some(image_doc) => image_doc,
+        None => return Err("No image found".to_string()),
+    };
+
+    let image_data: Vec<u8> = image_doc.get_binary_generic("data").unwrap().clone();
+    let content_type: String = image_doc.get_str("content_type").unwrap().to_string();
+
+    let thumbnail_data: Vec<u8> = image_doc
+        .get_binary_generic("thumbnail_data")
+        .unwrap()
+        .clone();
+    let thumbnail_content_type: String = image_doc
+        .get_str("thumbnail_content_type")
+        .unwrap()
+        .to_string();
+
+    Ok(Json(DocumentJson {
+        id,
+        size: (
+            image_doc.get_int("width").unwrap(),
+            image_doc.get_int("height").unwrap(),
+        ),
+        optim_level: image_doc.get_int("optim_level").unwrap(),
+        data: image_data,
+        content_type,
+        thumbnail_data,
+        thumbnail_content_type,
+    }))
 }
 
 #[launch]
