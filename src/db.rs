@@ -123,6 +123,9 @@ pub async fn insert_image(
                     "data": bson::Binary { subtype: BinarySubtype::Generic, bytes: image.data.to_vec() },
                     "content_type": image.content_type,
 
+                    "width": image.size.0,
+                    "height": image.size.0,
+
                     "thumbnail_data": bson::Binary { subtype: BinarySubtype::Generic, bytes: image.thumbnail_data.to_vec() },
                     "thumbnail_content_type": image.thumbnail_content_type,
 
@@ -136,7 +139,7 @@ pub async fn insert_image(
 
 pub async fn get_image(
     images_collection: &Collection<Document>,
-    id: String,
+    id: &str,
 ) -> Result<Option<Document>, mongodb::error::Error> {
     let filter = doc! {"_id": id};
     images_collection.find_one(filter, None).await

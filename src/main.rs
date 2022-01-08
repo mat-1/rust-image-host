@@ -8,11 +8,13 @@ mod util;
 use background_optimization::{optimize_image_and_update, optimize_images_from_database};
 use dotenv::dotenv;
 use log::info;
+use rocket::serde::{json::Json, Serialize};
 use rocket::{
     http::{ContentType, Header},
-    response::{content::Json, Redirect},
+    response::Redirect,
     Data, State,
 };
+
 use rocket_multipart_form_data::{
     mime, MultipartFormData, MultipartFormDataField, MultipartFormDataOptions,
 };
@@ -52,7 +54,7 @@ async fn upload_image(
         Box::new(path),
         &content_type_string,
         encoding::FromImageOptions {
-            max_size: 128,
+            max_size: 32,
             ..encoding::FromImageOptions::default()
         },
     );
@@ -172,7 +174,7 @@ async fn view_image_route(
     id: String,
     images_collection: &State<db::Collections>,
 ) -> Result<MyResponder, String> {
-    let image_doc_option = match db::get_image(&images_collection.images, id).await {
+    let image_doc_option = match db::get_image(&images_collection.images, &id).await {
         Ok(image_doc) => image_doc,
         Err(e) => return Err(e.to_string()),
     };
@@ -196,18 +198,23 @@ async fn redirect_image_route(id: String) -> Redirect {
     Redirect::to(uri!(view_image_route(id)))
 }
 
-#[derive(Deserialize)]
+// the data returned from the /json/ route.
+#[derive(Debug, Serialize)]
 struct DocumentJson {
+    // these are identical, for compatibility
     pub _id: String,
+    pub id: String,
 
-    /// How optimized the image is.
-    /// 0 means the image was *just* uploaded with minimal optimization.
-    pub optim_level: u8,
+    pub thumbnail_b64: String,
 
-    pub data: Vec<u8>,
-    pub content_type: Str,
+    // rename content_type to content=type
+    #[serde(rename = "content-type")]
+    pub content_type: String,
 
-    pub thumbnail_data: Vec<u8>,
+    pub width: u32,
+    pub height: u32,
+
+    #[serde(rename = "thumbnail-content-type")]
     pub thumbnail_content_type: String,
 }
 
@@ -216,7 +223,7 @@ async fn get_image_json_route(
     id: String,
     images_collection: &State<db::Collections>,
 ) -> Result<Json<DocumentJson>, String> {
-    let image_doc_option = match db::get_image(&images_collection.images, id).await {
+    let image_doc_option = match db::get_image(&images_collection.images, &id).await {
         Ok(image_doc) => image_doc,
         Err(e) => return Err(e.to_string()),
     };
@@ -238,15 +245,12 @@ async fn get_image_json_route(
         .to_string();
 
     Ok(Json(DocumentJson {
+        _id: id.clone(),
         id,
-        size: (
-            image_doc.get_int("width").unwrap(),
-            image_doc.get_int("height").unwrap(),
-        ),
-        optim_level: image_doc.get_int("optim_level").unwrap(),
-        data: image_data,
+        width: image_doc.get_i32("width").unwrap() as u32,
+        height: image_doc.get_i32("height").unwrap() as u32,
         content_type,
-        thumbnail_data,
+        thumbnail_b64: base64::encode(thumbnail_data),
         thumbnail_content_type,
     }))
 }
@@ -278,7 +282,8 @@ async fn rocket() -> _ {
             index,
             upload_image_route,
             view_image_route,
-            redirect_image_route
+            redirect_image_route,
+            get_image_json_route
         ],
     )
 }

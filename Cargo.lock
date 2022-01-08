@@ -1036,8 +1036,9 @@ dependencies = [
 
 [[package]]
 name = "image-host"
-version = "0.2.2"
+version = "0.3.0"
 dependencies = [
+ "base64",
  "bson",
  "dotenv",
  "futures",
@@ -1050,6 +1051,7 @@ dependencies = [
  "rocket",
  "rocket-multipart-form-data",
  "rocket_dyn_templates",
+ "serde",
  "tokio",
  "webp",
 ]
@@ -2042,6 +2044,7 @@ dependencies = [
  "rocket_codegen",
  "rocket_http",
  "serde",
+ "serde_json",
  "state",
  "tempfile",
  "time 0.2.27",
