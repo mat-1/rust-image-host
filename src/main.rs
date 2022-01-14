@@ -22,6 +22,9 @@ use std::path::PathBuf;
 use tokio::{join, task};
 use util::ImageId;
 
+// this is required for the /api/upload route to have the right url
+let host = std::env::var("HOST").unwrap_or("image-host.mat1.repl.co".to_string());
+
 #[derive(Responder)]
 #[response(status = 200)]
 struct HtmlResponder {
@@ -120,6 +123,49 @@ async fn upload_image(
 
 #[post("/", data = "<data>")]
 async fn upload_image_route(
+    content_type: &ContentType,
+    data: Data<'_>,
+    collections: &State<db::Collections>,
+) -> Result<Redirect, String> {
+    let options = MultipartFormDataOptions::with_multipart_form_data_fields(vec![
+        MultipartFormDataField::file("image")
+            .content_type_by_string(Some(mime::IMAGE_STAR))
+            .unwrap(),
+    ]);
+
+    let multipart_form_data = MultipartFormData::parse(content_type, data, options)
+        .await
+        .unwrap();
+
+    let image = multipart_form_data.files.get("image"); // Use the get method to preserve file fields from moving out of the MultipartFormData instance in order to delete them automatically when the MultipartFormData instance is being dropped
+
+    if let Some(file_fields) = image {
+        let file_field = &file_fields[0];
+
+        let _content_type = &file_field.content_type;
+        let _file_name = &file_field.file_name;
+        let path = file_field.path.clone();
+
+        println!("content type: {:?}", _content_type);
+        println!("file name: {:?}", _file_name);
+        println!("path: {:?}", path);
+
+        let content_type_string = match _content_type {
+            Some(t) => t.to_string(),
+            None => return Err("No mimetype".to_string()),
+        };
+
+        let image_id: ImageId =
+            upload_image(path, content_type_string, &collections.images).await?;
+
+        Ok(Redirect::to(uri!(view_image_route(image_id.to_string()))))
+    } else {
+        Err("no image selected :(".to_string())
+    }
+}
+
+#[post("/api/upload", data = "<data>")]
+async fn api_upload_image_route(
     content_type: &ContentType,
     data: Data<'_>,
     collections: &State<db::Collections>,
