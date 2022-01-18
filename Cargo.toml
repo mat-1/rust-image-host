@@ -21,6 +21,7 @@ rocket-multipart-form-data = "^0.10.0"
 serde = "^1.0"
 tokio = "^1.14.0"
 webp = "^0.2.0"
+lazy_static = "1.4.0"
 
 [dependencies.rocket_dyn_templates]
 features = ["tera"]

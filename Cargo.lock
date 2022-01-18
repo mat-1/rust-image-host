@@ -1043,6 +1043,7 @@ dependencies = [
  "dotenv",
  "futures",
  "image",
+ "lazy_static",
  "log",
  "mongodb",
  "oxipng",

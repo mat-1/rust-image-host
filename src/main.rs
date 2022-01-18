@@ -1,5 +1,9 @@
 #[macro_use]
 extern crate rocket;
+
+#[macro_use]
+extern crate lazy_static;
+
 mod background_optimization;
 mod db;
 mod encoding;
@@ -19,11 +23,14 @@ use rocket_multipart_form_data::{
     mime, MultipartFormData, MultipartFormDataField, MultipartFormDataOptions,
 };
 use std::path::PathBuf;
+use std::rc::Rc;
 use tokio::{join, task};
 use util::ImageId;
 
-// this is required for the /api/upload route to have the right url
-let host = std::env::var("HOST").unwrap_or("image-host.mat1.repl.co".to_string());
+lazy_static! {
+    // this is required for the /api/upload route to have the right url
+    static ref HOST: String = std::env::var("HOST").unwrap_or("image-host.mat1.repl.co".to_string());
+}
 
 #[derive(Responder)]
 #[response(status = 200)]
@@ -164,12 +171,19 @@ async fn upload_image_route(
     }
 }
 
+#[derive(Serialize)]
+struct ApiUploadResult {
+    hash: String,
+    url: String,
+    view: String,
+}
+
 #[post("/api/upload", data = "<data>")]
 async fn api_upload_image_route(
     content_type: &ContentType,
     data: Data<'_>,
     collections: &State<db::Collections>,
-) -> Result<Redirect, String> {
+) -> Result<Json<ApiUploadResult>, String> {
     let options = MultipartFormDataOptions::with_multipart_form_data_fields(vec![
         MultipartFormDataField::file("image")
             .content_type_by_string(Some(mime::IMAGE_STAR))
@@ -189,19 +203,66 @@ async fn api_upload_image_route(
         let _file_name = &file_field.file_name;
         let path = file_field.path.clone();
 
-        println!("content type: {:?}", _content_type);
-        println!("file name: {:?}", _file_name);
-        println!("path: {:?}", path);
+        let content_type_string = match _content_type {
+            Some(t) => t.to_string(),
+            None => return Err("No mimetype".to_string()),
+        };
+
+        let image_id: Rc<ImageId> =
+            Rc::new(upload_image(path, content_type_string, &collections.images).await?);
+
+        Ok(Json(ApiUploadResult {
+            hash: image_id.to_string(),
+            url: format!("https://{}/{}", *HOST, image_id),
+            view: format!("https://{}/{}", *HOST, image_id),
+        }))
+
+        // Ok(Redirect::to(uri!(view_image_route(image_id.to_string()))))
+    } else {
+        Err("no image selected :(".to_string())
+    }
+}
+
+#[post("/api/upload/short", data = "<data>")]
+async fn api_upload_image_route_short(
+    content_type: &ContentType,
+    data: Data<'_>,
+    collections: &State<db::Collections>,
+) -> Result<Json<ApiUploadResult>, String> {
+    let options = MultipartFormDataOptions::with_multipart_form_data_fields(vec![
+        MultipartFormDataField::file("image")
+            .content_type_by_string(Some(mime::IMAGE_STAR))
+            .unwrap(),
+    ]);
+
+    let multipart_form_data = MultipartFormData::parse(content_type, data, options)
+        .await
+        .unwrap();
+
+    let image = multipart_form_data.files.get("image"); // Use the get method to preserve file fields from moving out of the MultipartFormData instance in order to delete them automatically when the MultipartFormData instance is being dropped
+
+    if let Some(file_fields) = image {
+        let file_field = &file_fields[0];
+
+        let _content_type = &file_field.content_type;
+        let _file_name = &file_field.file_name;
+        let path = file_field.path.clone();
 
         let content_type_string = match _content_type {
             Some(t) => t.to_string(),
             None => return Err("No mimetype".to_string()),
         };
 
-        let image_id: ImageId =
-            upload_image(path, content_type_string, &collections.images).await?;
+        let image_id: Rc<ImageId> =
+            Rc::new(upload_image(path, content_type_string, &collections.images).await?);
 
-        Ok(Redirect::to(uri!(view_image_route(image_id.to_string()))))
+        Ok(Json(ApiUploadResult {
+            hash: image_id.to_string(),
+            url: format!("https://{}/{}", *HOST, image_id),
+            view: format!("https://{}/{}", *HOST, image_id),
+        }))
+
+        // Ok(Redirect::to(uri!(view_image_route(image_id.to_string()))))
     } else {
         Err("no image selected :(".to_string())
     }
@@ -329,7 +390,9 @@ async fn rocket() -> _ {
             upload_image_route,
             view_image_route,
             redirect_image_route,
-            get_image_json_route
+            get_image_json_route,
+            api_upload_image_route,
+            api_upload_image_route_short,
         ],
     )
 }
