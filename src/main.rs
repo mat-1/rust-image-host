@@ -292,6 +292,15 @@ async fn view_image_route(
 
     let image_data: Vec<u8> = image_doc.get_binary_generic("data").unwrap().clone();
     let content_type: String = image_doc.get_str("content_type").unwrap().to_string();
+    let image_id: ImageId = ImageId(image_doc.get_str("_id").unwrap().to_string());
+
+    let owned_images_collection = images_collection.images.clone();
+    // update the last_seen value so the image doesn't expire
+    task::spawn(async move {
+        db::update_last_seen(&owned_images_collection, &image_id)
+            .await
+            .ok();
+    });
 
     Ok(MyResponder {
         inner: image_data,

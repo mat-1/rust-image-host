@@ -92,10 +92,23 @@ pub async fn optimize_image_and_update(
     Ok(())
 }
 
-/// Find images that should be optimized from the database and optimize them
+/// Find images that should be optimized or deleted from the database
 pub async fn optimize_images_from_database(
     images_collection: &Collection<Document>,
 ) -> Result<(), String> {
+    // delete images that haven't been viewed in a year
+    let target_datetime =
+        bson::DateTime::from_millis(bson::DateTime::now().timestamp_millis() - 31_536_000_000);
+    images_collection
+        .delete_many(
+            doc! {
+                "last_seen": {"$lt": target_datetime},
+            },
+            None,
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+
     // images with an optimization level of 0
     let mut images_cursor = images_collection
         .find(

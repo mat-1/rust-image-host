@@ -7,6 +7,7 @@ use log::info;
 use mongodb::{
     bson::{doc, Document},
     options::{ClientOptions, FindOneAndUpdateOptions, ResolverConfig, ReturnDocument},
+    results::UpdateResult,
     Client, Collection,
 };
 use std::env;
@@ -133,6 +134,26 @@ pub async fn insert_image(
                 }
             },
             FindOneAndUpdateOptions ::builder().upsert(true).return_document(ReturnDocument ::After).build()
+        )
+        .await
+}
+
+/// Bump the "last_seen" value on an image to now
+pub async fn update_last_seen(
+    images_collection: &Collection<Document>,
+    image_id: &ImageId,
+) -> Result<UpdateResult, mongodb::error::Error> {
+    images_collection
+        .update_one(
+            doc! {
+                "_id": image_id.to_string(),
+            },
+            doc! {
+                "$set": {
+                    "last_seen": bson::DateTime::now(),
+                }
+            },
+            None,
         )
         .await
 }
