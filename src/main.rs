@@ -29,7 +29,7 @@ use util::ImageId;
 
 lazy_static! {
     // this is required for the /api/upload route to have the right url
-    static ref HOST: String = std::env::var("HOST").unwrap_or("image-host.mat1.repl.co".to_string());
+    static ref HOST: String = std::env::var("HOST").unwrap_or("i.matdoes.dev".to_string());
 }
 
 #[derive(Responder)]
