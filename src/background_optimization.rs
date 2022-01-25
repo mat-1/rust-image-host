@@ -51,6 +51,7 @@ pub async fn optimize_image_and_update(
             image.clone(),
             FromImageOptions {
                 optimize_png: true,
+                max_size: Some(1024),
                 ..FromImageOptions::default()
             },
         ),
@@ -61,7 +62,7 @@ pub async fn optimize_image_and_update(
         image,
         FromImageOptions {
             optimize_png: true,
-            max_size: 128,
+            max_size: Some(128),
             ..FromImageOptions::default()
         },
     );

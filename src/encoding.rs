@@ -91,7 +91,7 @@ fn to_png(im: &DynamicImage) -> Result<CompressedImageResult, String> {
 #[derive(Debug)]
 pub struct FromImageOptions {
     /// The max width and height of the image
-    pub max_size: u32,
+    pub max_size: Option<u32>,
     /// Whether it should also try compressing the image with PNG in parallel, this will be slower and often unnecessary
     pub optimize_png: bool,
 }
@@ -99,7 +99,7 @@ pub struct FromImageOptions {
 impl Default for FromImageOptions {
     fn default() -> FromImageOptions {
         FromImageOptions {
-            max_size: 1024,
+            max_size: None,
             optimize_png: false,
         }
     }
@@ -158,24 +158,29 @@ pub async fn from_image<'a>(
     info!("dimensions: {} {}", original_width, original_height);
 
     // if the image is too big, resize it to be 512x512
-    let (size, im) = if original_width > opts.max_size || original_height > opts.max_size {
-        let new_size = clamp_im_size(original_width, original_height, opts.max_size);
+    let (size, im) = if let Some(max_size) = opts.max_size {
+        if original_width > max_size || original_height > max_size {
+            let new_size = clamp_im_size(original_width, original_height, max_size);
 
-        // we use nearest resizing because it's fast, in the future i should use fast_image_resize so it's even faster, maybe
-        // task::spawn_blocking(move || im.resize_exact(512, 512, FilterType::Nearest))
-        //     .await
-        //     .unwrap();
-        let new_im = task::spawn_blocking(move || {
-            original_im.resize_exact(new_size.0, new_size.1, FilterType::Nearest)
-        })
-        .await
-        .unwrap();
+            // we use nearest resizing because it's fast, in the future i should use fast_image_resize so it's even faster, maybe
+            // task::spawn_blocking(move || im.resize_exact(512, 512, FilterType::Nearest))
+            //     .await
+            //     .unwrap();
+            let new_im = task::spawn_blocking(move || {
+                original_im.resize_exact(new_size.0, new_size.1, FilterType::Lanczos3)
+            })
+            .await
+            .unwrap();
 
-        (new_size, new_im)
+            (new_size, new_im)
+        } else {
+            ((original_width, original_height), original_im)
+        }
     } else {
         ((original_width, original_height), original_im)
     };
-    info!("resized");
+
+    info!("did resize step");
 
     // we have to clone `im` because it will get moved
     // it's probably possible to not have to clone but i don't think it matters

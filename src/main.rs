@@ -64,7 +64,7 @@ async fn upload_image(
         Box::new(path),
         &content_type_string,
         encoding::FromImageOptions {
-            max_size: 32,
+            max_size: Some(128),
             ..encoding::FromImageOptions::default()
         },
     );
