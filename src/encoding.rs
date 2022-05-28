@@ -58,7 +58,7 @@ fn to_webp(im: &DynamicImage) -> Result<CompressedImageResult, String> {
     info!("encoding webp");
     let encoder = match webp::Encoder::from_image(im) {
         Ok(i) => i,
-        Err(e) => return Err(e.to_string()),
+        Err(e) => return Err(format!("Error making encoder for webp: {}", e.to_string())),
     };
     let image_bytes = (*encoder.encode(90.0)).to_vec();
     info!("encoded webp");
@@ -74,11 +74,11 @@ fn to_png(im: &DynamicImage) -> Result<CompressedImageResult, String> {
     let mut bytes: Vec<u8> = Vec::new();
     match im.write_to(&mut bytes, image::ImageOutputFormat::Png) {
         Ok(_) => (),
-        Err(e) => return Err(e.to_string()),
+        Err(e) => return Err(format!("Error writing png: {}", e.to_string())),
     };
     let image_bytes = match oxipng::optimize_from_memory(&bytes[..], &oxipng::Options::default()) {
         Ok(r) => r,
-        Err(e) => return Err(e.to_string()),
+        Err(e) => return Err(format!("Error optimizing png: {}", e.to_string())),
     };
 
     Ok(CompressedImageResult {
@@ -203,19 +203,10 @@ pub async fn from_image<'a>(
     // unwrap the first set of results
     let future_results: Vec<_> = future_results.iter().map(|r| r.as_ref().unwrap()).collect();
 
-    // if any of the futures failed, return the error
-    if future_results.iter().any(|r| r.is_err()) {
-        return Err(future_results
-            .iter()
-            .filter_map(|r| r.as_ref().err())
-            .next()
-            .unwrap()
-            .to_string());
-    }
-
     // find which one is smallest and set image_bytes and content_type
     let compressed_image_result = future_results
         .iter()
+        .filter(|r| r.as_ref().err().is_none())
         .map(|r| r.as_ref().unwrap())
         .min_by_key(|r| r.data.len())
         .unwrap();

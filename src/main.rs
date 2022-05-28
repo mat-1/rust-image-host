@@ -119,7 +119,7 @@ async fn upload_image(
     // optimize the image more heavily in the background so we can serve it faster
     task::spawn(async move {
         // if it fails optimizing, we don't care
-        optimize_image_and_update(&owned_images_collection, insert_result.unwrap().unwrap())
+        optimize_image_and_update(&owned_images_collection, &insert_result.unwrap().unwrap())
             .await
             .ok();
         info!("optimized!")

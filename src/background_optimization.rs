@@ -17,7 +17,7 @@ use util::ImageId;
 /// Optimize an image from the database and bump its compression level.
 pub async fn optimize_image_and_update(
     images_collection: &Collection<Document>,
-    image_doc: Document,
+    image_doc: &Document,
 ) -> Result<(), String> {
     let image_id = ImageId(
         image_doc
@@ -71,6 +71,11 @@ pub async fn optimize_image_and_update(
         join!(encoded_image_future, encoded_thumbnail_future);
     let (encoded_image, encoded_thumbnail) = (encoded_image_result?, encoded_thumbnail_result?);
 
+    info!(
+        "inserting into database {}, new optimization level: {}",
+        image_id,
+        optimization_level + 1
+    );
     db::insert_image(
         images_collection,
         &db::NewImage {
@@ -97,6 +102,7 @@ pub async fn optimize_image_and_update(
 pub async fn optimize_images_from_database(
     images_collection: &Collection<Document>,
 ) -> Result<(), String> {
+    println!("optimize_images_from_database");
     // delete images that haven't been viewed in a year
     let target_datetime =
         bson::DateTime::from_millis(bson::DateTime::now().timestamp_millis() - 31_536_000_000);
@@ -122,8 +128,14 @@ pub async fn optimize_images_from_database(
         .map_err(|e| e.to_string())?;
     while let Some(im) = images_cursor.try_next().await.map_err(|e| e.to_string())? {
         // if there's an error, just ignore it
-        optimize_image_and_update(images_collection, im).await.ok();
+        optimize_image_and_update(images_collection, &im)
+            .await
+            .unwrap_or_else(|e| {
+                println!("Error optimizing image: {}", e);
+            });
+        info!("optimized image {}", im.get_str("_id").unwrap());
     }
+    info!("Done optimizing images.");
 
     Ok(())
 }
