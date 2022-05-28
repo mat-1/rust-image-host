@@ -6,6 +6,7 @@ use image::imageops::FilterType;
 use image::io::Reader as ImageReader;
 use image::DynamicImage;
 use image::GenericImageView;
+use std::io::Cursor;
 use std::{fmt::Debug, path::PathBuf};
 use tokio::task;
 use tokio::task::JoinHandle;
@@ -71,15 +72,16 @@ fn to_webp(im: &DynamicImage) -> Result<CompressedImageResult, String> {
 
 /// Convert a dynamic image to png
 fn to_png(im: &DynamicImage) -> Result<CompressedImageResult, String> {
-    let mut bytes: Vec<u8> = Vec::new();
+    let mut bytes: Cursor<Vec<u8>> = Cursor::new(Vec::new());
     match im.write_to(&mut bytes, image::ImageOutputFormat::Png) {
         Ok(_) => (),
         Err(e) => return Err(format!("Error writing png: {}", e.to_string())),
     };
-    let image_bytes = match oxipng::optimize_from_memory(&bytes[..], &oxipng::Options::default()) {
-        Ok(r) => r,
-        Err(e) => return Err(format!("Error optimizing png: {}", e.to_string())),
-    };
+    let image_bytes =
+        match oxipng::optimize_from_memory(&bytes.into_inner()[..], &oxipng::Options::default()) {
+            Ok(r) => r,
+            Err(e) => return Err(format!("Error optimizing png: {}", e.to_string())),
+        };
 
     Ok(CompressedImageResult {
         data: image_bytes,
