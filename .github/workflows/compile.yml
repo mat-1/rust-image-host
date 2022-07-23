@@ -1,4 +1,4 @@
-# basically stolen from https://github.com/spikecodes/image-host/blob/main/.github/workflows/rust.yml
+# basically stolen from https://github.com/spikecodes/libreddit/blob/master/.github/workflows/rust.yml
 
 name: CI
 
