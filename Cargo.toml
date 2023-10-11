@@ -6,23 +6,23 @@ version = "0.5.5"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-base64 = "0.13.0"
-bson = "^2.0.0"
+base64 = "0.21.4"
+bson = "^2.7.0"
 dotenv = "^0.15.0"
-futures = "^0.3.18"
-image = "^0.24.2"
+futures = "^0.3.28"
+image = "^0.24.7"
 lazy_static = "1.4.0"
 log = "^0.4"
-mongodb = "^2.0.2"
-oxipng = "^5.0.1"
-rand = "^0.8.4"
-rayon = "^1.5.1"
-rocket = {version = "^0.5.0-rc.1", features = ["json"]}
-rocket-multipart-form-data = "^0.10.0"
+mongodb = "^2.7.0"
+oxipng = "^9.0.0"
+rand = "^0.8.5"
+rayon = "^1.8.0"
+rocket = {version = "^0.5.0-rc.3", features = ["json"]}
+rocket-multipart-form-data = "^0.10.6"
 serde = "^1.0"
-tokio = "^1.14.0"
-webp = "^0.2.2"
+tokio = "^1.33.0"
+webp = "^0.2.6"
 
 [dependencies.rocket_dyn_templates]
 features = ["tera"]
-version = "^0.1.0-rc.1"
+version = "^0.1.0-rc.3"

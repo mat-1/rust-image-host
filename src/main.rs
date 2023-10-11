@@ -68,7 +68,7 @@ async fn upload_image(
             ..encoding::FromImageOptions::default()
         },
     );
-    let image_id_future = db::generate_image_id(&images_collection);
+    let image_id_future = db::generate_image_id(images_collection);
 
     info!("Finished making futures image, doing encoding!");
 
@@ -92,7 +92,7 @@ async fn upload_image(
     info!("Inserting image into database");
 
     let insert_result = db::insert_image(
-        &images_collection,
+        images_collection,
         &db::NewImage {
             id: &image_id,
 
